@@ -42,8 +42,10 @@ export default function Hero() {
           zIndex: 0,
         }}
       >
+        <source src="/tutu.mp4" type="video/mp4" />
+        <source src="/home_video1.mp4" type="video/mp4" />
+        <source src="/homevideo1.mp4" type="video/mp4" />
         <source src="/homevideo.mp4" type="video/mp4" />
-        <source src="/Home Video.mp4" type="video/mp4" />
       </video>
 
       {/* ── 2. Subtle translucent white overlay ── */}
