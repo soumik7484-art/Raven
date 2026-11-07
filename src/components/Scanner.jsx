@@ -42,7 +42,7 @@ export default function Scanner() {
     runScan(normalized)
   }
 
-  function useSample(url) {
+  function applySample(url) {
     setInput(url)
     setValErr('')
   }
@@ -381,7 +381,7 @@ export default function Scanner() {
                 <button
                   key={url}
                   type="button"
-                  onClick={() => useSample(url)}
+                  onClick={() => applySample(url)}
                   style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: '0.4rem',
