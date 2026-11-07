@@ -3,9 +3,9 @@ import { useRef, useEffect } from 'react'
 /**
  * CinematicIntro — HackMatrix
  *
- * Full-screen cinematic video introduction shown when a visitor first arrives.
- * Plays landingpage1.mp4 without sound, freezes on the final frame, and provides
- * a clean 'ENTER HACKMATRIX →' continue button below the video.
+ * Full-screen edge-to-edge cinematic video introduction.
+ * The video fills 100vw × 100vh with no white bars or separate sections.
+ * The 'ENTER HACKMATRIX →' button floats directly over the video near the bottom.
  */
 export default function CinematicIntro({ onEnter }) {
   const videoRef = useRef(null)
@@ -17,25 +17,19 @@ export default function CinematicIntro({ onEnter }) {
     video.muted = true
     video.defaultMuted = true
     video.playsInline = true
+    video.loop = true
     video.setAttribute('muted', '')
     video.setAttribute('playsinline', '')
     video.setAttribute('webkit-playsinline', '')
+    video.setAttribute('loop', '')
 
     const playPromise = video.play()
     if (playPromise !== undefined) {
       playPromise.catch((err) => {
-        // Autoplay policy fallback: video remains ready for user interaction
-        console.warn('Autoplay paused by browser policy:', err)
+        console.warn('Autoplay prevented by browser policy:', err)
       })
     }
   }, [])
-
-  const handleEnded = () => {
-    // Keep the final frame visible without showing black screen or looping
-    if (videoRef.current) {
-      videoRef.current.pause()
-    }
-  }
 
   return (
     <div
@@ -46,61 +40,47 @@ export default function CinematicIntro({ onEnter }) {
         zIndex: 9999,
         width: '100vw',
         height: '100vh',
-        backgroundColor: '#FAFAF7',
-        display: 'flex',
-        flexDirection: 'column',
+        backgroundColor: '#0E140F',
         overflow: 'hidden',
       }}
     >
-      {/* ── 1. Video Area (occupying 86–88% of viewport height) ── */}
-      <div
-        className="cinematic-video-wrap"
+      {/* ── Fullscreen Video (Edge-to-Edge 100vw × 100vh, continuously looping) ── */}
+      <video
+        ref={videoRef}
+        src="/landingpage1.mp4"
+        autoPlay
+        muted
+        playsInline
+        controls={false}
+        preload="auto"
+        loop
         style={{
-          position: 'relative',
+          position: 'absolute',
+          inset: 0,
           width: '100%',
-          flex: '1 1 auto',
-          height: '87vh',
-          backgroundColor: '#0E140F',
-          overflow: 'hidden',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
         }}
       >
-        <video
-          ref={videoRef}
-          src="/landingpage1.mp4"
-          autoPlay
-          muted
-          playsInline
-          controls={false}
-          preload="auto"
-          loop={false}
-          onEnded={handleEnded}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-          }}
-        >
-          <source src="/landingpage1.mp4" type="video/mp4" />
-          <source src="/landing page.mp4" type="video/mp4" />
-        </video>
-      </div>
+        <source src="/landingpage1.mp4" type="video/mp4" />
+        <source src="/landing page.mp4" type="video/mp4" />
+      </video>
 
-      {/* ── 2. Clean bottom area with centered continue button ── */}
+      {/* ── Button directly on the video near the bottom ── */}
       <div
-        className="cinematic-bottom-bar"
         style={{
-          width: '100%',
-          height: '13vh',
-          minHeight: '76px',
-          backgroundColor: '#FAFAF7',
+          position: 'absolute',
+          bottom: 'clamp(24px, 6vh, 48px)',
+          left: 0,
+          right: 0,
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'center',
-          padding: '12px 20px',
-          boxSizing: 'border-box',
-          flexShrink: 0,
-          borderTop: '1px solid rgba(44, 36, 22, 0.06)',
+          alignItems: 'center',
+          zIndex: 10,
+          padding: '0 20px',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          pointerEvents: 'none',
         }}
       >
         <button
@@ -109,41 +89,46 @@ export default function CinematicIntro({ onEnter }) {
           className="enter-hackmatrix-btn"
           aria-label="Enter HackMatrix"
           style={{
+            pointerEvents: 'auto',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
-            backgroundColor: '#2F522F',
+            backgroundColor: 'rgba(32, 60, 32, 0.92)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             color: '#FFFFFF',
             fontFamily: 'var(--font-display, "Manrope", sans-serif)',
-            fontSize: 'clamp(0.9rem, 2vw, 1.05rem)',
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-            padding: '13px 32px',
-            borderRadius: '8px',
-            border: '1.5px solid #233D23',
+            fontSize: 'clamp(0.92rem, 1.8vw, 1.05rem)',
+            fontWeight: 800,
+            letterSpacing: '0.05em',
+            padding: '15px 36px',
+            borderRadius: '10px',
+            border: '1.5px solid rgba(255, 255, 255, 0.25)',
             cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(47, 82, 47, 0.22)',
-            transition: 'transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45), 0 2px 10px rgba(32, 60, 32, 0.5)',
+            transition: 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), filter 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease',
             textDecoration: 'none',
             userSelect: 'none',
             WebkitTapHighlightColor: 'transparent',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.02)'
-            e.currentTarget.style.filter = 'brightness(1.14)'
-            e.currentTarget.style.boxShadow = '0 6px 18px rgba(47, 82, 47, 0.32)'
+            e.currentTarget.style.transform = 'scale(1.03) translateY(-1px)'
+            e.currentTarget.style.filter = 'brightness(1.18)'
+            e.currentTarget.style.boxShadow = '0 12px 36px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(45, 95, 45, 0.6)'
+            e.currentTarget.style.backgroundColor = 'rgba(40, 75, 40, 0.96)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)'
+            e.currentTarget.style.transform = 'scale(1) translateY(0)'
             e.currentTarget.style.filter = 'brightness(1)'
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(47, 82, 47, 0.22)'
+            e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.45), 0 2px 10px rgba(32, 60, 32, 0.5)'
+            e.currentTarget.style.backgroundColor = 'rgba(32, 60, 32, 0.92)'
           }}
           onMouseDown={(e) => {
-            e.currentTarget.style.transform = 'scale(0.98)'
+            e.currentTarget.style.transform = 'scale(0.97)'
           }}
           onMouseUp={(e) => {
-            e.currentTarget.style.transform = 'scale(1.02)'
+            e.currentTarget.style.transform = 'scale(1.03) translateY(-1px)'
           }}
         >
           ENTER HACKMATRIX →
@@ -155,35 +140,12 @@ export default function CinematicIntro({ onEnter }) {
           .cinematic-intro-root {
             height: 100dvh !important;
           }
-          .cinematic-video-wrap {
-            height: 87dvh !important;
-          }
-          .cinematic-bottom-bar {
-            height: 13dvh !important;
-            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
-          }
         }
         @media (max-width: 600px) {
-          .cinematic-video-wrap {
-            height: 84vh !important;
-          }
-          @supports (height: 100dvh) {
-            .cinematic-video-wrap {
-              height: 84dvh !important;
-            }
-            .cinematic-bottom-bar {
-              height: 16dvh !important;
-            }
-          }
-          .cinematic-bottom-bar {
-            height: 16vh !important;
-            min-height: 80px !important;
-            padding: 10px 16px !important;
-          }
           .enter-hackmatrix-btn {
             width: 100% !important;
             max-width: 320px !important;
-            padding: 14px 20px !important;
+            padding: 14px 22px !important;
             font-size: 0.92rem !important;
           }
         }
