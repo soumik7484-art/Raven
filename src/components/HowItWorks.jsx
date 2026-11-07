@@ -1,0 +1,452 @@
+/**
+ * HowItWorks — HackMatrix
+ *
+ * Seven-stage investigation pipeline rendered as a connected visual journey.
+ * Alternating left/right layout on desktop, single column on mobile.
+ * Each stage has a Minecraft-inspired pixel icon, a number badge, and content.
+ * A continuous connector line visually links all stages.
+ */
+
+const STAGES = [
+  {
+    num: '01',
+    title: 'URL Submission',
+    desc: 'Submit a website URL for a complete digital security investigation. The journey begins with a single address.',
+    icon: <SubmitIcon />,
+    color: '#527A50',
+    badge: 'Input',
+  },
+  {
+    num: '02',
+    title: 'Validation & Safety',
+    desc: 'The URL is validated, normalised, and checked for formatting. Safe request restrictions are applied before investigation begins.',
+    icon: <ValidateIcon />,
+    color: '#8B6914',
+    badge: 'Checks',
+  },
+  {
+    num: '03',
+    title: 'Parallel Investigation',
+    desc: 'Four independent security modules investigate simultaneously: ML Detection, Threat Intelligence, TLS & Domain, and Website Assessment.',
+    icon: <ParallelIcon />,
+    color: '#1A5E8A',
+    badge: '4 Modules',
+    modules: ['ML Detection', 'Threat Intel', 'TLS & Domain', 'Assessment'],
+  },
+  {
+    num: '04',
+    title: 'AI-Assisted Analysis',
+    desc: 'An open-source AI model explains suspicious page content, possible impersonation, misleading login forms, and abnormal network requests.',
+    icon: <AIIcon />,
+    color: '#6C3483',
+    badge: 'AI',
+  },
+  {
+    num: '05',
+    title: 'Risk Intelligence Engine',
+    desc: 'Evidence is combined, conflicting signals reconciled, unavailable checks accounted for, and an explainable risk score calculated.',
+    icon: <RiskIcon />,
+    color: '#B7770D',
+    badge: 'Scoring',
+  },
+  {
+    num: '06',
+    title: 'Investigation Report',
+    desc: 'A full report displays the overall risk level, supporting evidence, individual module results, and actionable recommendations.',
+    icon: <ReportIcon />,
+    color: '#527A50',
+    badge: 'Results',
+  },
+  {
+    num: '07',
+    title: 'Threat Intelligence Storage',
+    desc: 'Scan history, investigation results, and community-verified threat reports are stored with appropriate privacy controls.',
+    icon: <StorageIcon />,
+    color: '#7F8C8D',
+    badge: 'Archive',
+  },
+]
+
+export default function HowItWorks() {
+  return (
+    <section
+      id="how-it-works"
+      aria-labelledby="how-heading"
+      style={{
+        backgroundColor: 'var(--color-white)',
+        paddingTop:    'clamp(4rem, 8vw, 6rem)',
+        paddingBottom: 'clamp(4rem, 8vw, 6rem)',
+        scrollMarginTop: '64px',
+      }}
+    >
+      <div className="section-container">
+        {/* Section header */}
+        <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto', marginBottom: '4rem' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontFamily: 'var(--font-pixel)',
+            fontSize: '0.85rem',
+            color: 'var(--color-stone-dark)',
+            letterSpacing: '0.06em',
+            marginBottom: '1rem',
+          }}>
+            <PixelBlock size={10} color="var(--color-earth)" />
+            HOW IT WORKS
+          </div>
+          <h2
+            id="how-heading"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
+              fontWeight: 800,
+              letterSpacing: '-0.035em',
+              lineHeight: 1.1,
+              color: 'var(--color-charcoal)',
+              marginBottom: '1rem',
+            }}
+          >
+            Seven Stages of<br />
+            <span style={{ color: 'var(--color-forest)' }}>Digital Investigation</span>
+          </h2>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '1rem',
+            color: 'var(--color-muted)',
+            lineHeight: 1.7,
+          }}>
+            Every URL submission triggers a multi-layer security investigation pipeline,
+            from input to archived intelligence report.
+          </p>
+        </div>
+
+        {/* Stages */}
+        <div style={{ position: 'relative' }}>
+          {/* Central connector line */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '40px',
+              bottom: '40px',
+              width: '2px',
+              backgroundColor: 'var(--color-border)',
+              transform: 'translateX(-50%)',
+              zIndex: 0,
+            }}
+            className="hide-on-mobile"
+          />
+
+          {STAGES.map((stage, i) => (
+            <StageCard key={stage.num} stage={stage} index={i} />
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .hide-on-mobile { display: none !important; }
+          .stage-left, .stage-right { flex-direction: column !important; }
+          .stage-spacer { display: none !important; }
+        }
+      `}</style>
+    </section>
+  )
+}
+
+function StageCard({ stage, index }) {
+  const isLeft = index % 2 === 0  // even → content left, icon right
+  const { num, title, desc, icon, color, badge, modules } = stage
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '2rem',
+        marginBottom: '2rem',
+        flexDirection: isLeft ? 'row' : 'row-reverse',
+        position: 'relative',
+        zIndex: 1,
+      }}
+      className={isLeft ? 'stage-left' : 'stage-right'}
+    >
+      {/* Content side */}
+      <div style={{ flex: 1 }}>
+        <div
+          style={{
+            backgroundColor: 'var(--color-white)',
+            border: '2px solid var(--color-border)',
+            borderRadius: '10px',
+            padding: '22px 24px',
+            boxShadow: '0 4px 0 var(--color-border), var(--shadow-sm)',
+            position: 'relative',
+          }}
+        >
+          {/* Stage badge */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            backgroundColor: color,
+            color: '#fff',
+            fontFamily: 'var(--font-pixel)',
+            fontSize: '0.82rem',
+            padding: '3px 10px',
+            borderRadius: '4px',
+            marginBottom: '10px',
+            letterSpacing: '0.04em',
+          }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.7rem' }}>{num}</span>
+            {badge.toUpperCase()}
+          </div>
+
+          <h3 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '1.0625rem',
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            color: 'var(--color-charcoal)',
+            marginBottom: '8px',
+          }}>
+            {title}
+          </h3>
+
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.9rem',
+            color: 'var(--color-muted)',
+            lineHeight: 1.65,
+          }}>
+            {desc}
+          </p>
+
+          {/* Module pills for stage 03 */}
+          {modules && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px' }}>
+              {modules.map((m) => (
+                <span key={m} style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.7rem',
+                  color: '#1A5E8A',
+                  backgroundColor: '#EBF5FB',
+                  border: '1px solid #AED6F1',
+                  borderRadius: '4px',
+                  padding: '3px 8px',
+                  letterSpacing: '0.04em',
+                }}>
+                  {m}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Centre node — number circle */}
+      <div
+        className="stage-spacer"
+        style={{
+          flexShrink: 0,
+          width: '52px',
+          height: '52px',
+          borderRadius: '6px',
+          backgroundColor: color,
+          border: '3px solid var(--color-white)',
+          boxShadow: `0 0 0 2px ${color}40, var(--shadow-md)`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: '1px',
+          zIndex: 2,
+        }}
+      >
+        <span style={{
+          fontFamily: 'var(--font-pixel)',
+          fontSize: '1.2rem',
+          color: 'white',
+          lineHeight: 1,
+          letterSpacing: '0.02em',
+        }}>
+          {num}
+        </span>
+      </div>
+
+      {/* Icon side */}
+      <div style={{ flex: 1, display: 'flex', justifyContent: isLeft ? 'flex-start' : 'flex-end' }}>
+        <div
+          style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--color-stone-light)',
+            border: '2px solid var(--color-border)',
+            boxShadow: '0 4px 0 var(--color-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            {icon}
+          </svg>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   Stage pixel icons (48×48 viewBox each)
+   ───────────────────────────────────────────── */
+function SubmitIcon() {
+  return (
+    <>
+      {/* Monitor */}
+      <rect x="6"  y="8"  width="36" height="24" rx="2" fill="#527A50" />
+      <rect x="8"  y="10" width="32" height="20" fill="#1A8A5A" />
+      <rect x="8"  y="10" width="32" height="3"  fill="rgba(255,255,255,0.15)" />
+      {/* Screen text lines */}
+      <rect x="11" y="16" width="20" height="2" rx="1" fill="rgba(255,255,255,0.7)" />
+      <rect x="11" y="21" width="14" height="2" rx="1" fill="rgba(255,255,255,0.4)" />
+      <rect x="11" y="26" width="18" height="2" rx="1" fill="rgba(255,255,255,0.4)" />
+      {/* Arrow cursor */}
+      <polygon points="34,20 42,24 36,26 34,32 30,22" fill="white" opacity="0.9" />
+      {/* Stand */}
+      <rect x="20" y="32" width="8"  height="4" fill="#3F6040" />
+      <rect x="16" y="36" width="16" height="3" rx="1" fill="#3F6040" />
+    </>
+  )
+}
+
+function ValidateIcon() {
+  return (
+    <>
+      {/* Clipboard */}
+      <rect x="8"  y="6"  width="32" height="36" rx="2" fill="#EDE5D6" stroke="#C8A87A" strokeWidth="2" />
+      <rect x="16" y="2"  width="16" height="8"  rx="2" fill="#C8A87A" />
+      {/* Checklist items */}
+      <rect x="13" y="18" width="4" height="4" rx="1" fill="#527A50" />
+      <rect x="20" y="19" width="16" height="2" rx="1" fill="#A89F92" />
+      <rect x="13" y="26" width="4" height="4" rx="1" fill="#527A50" />
+      <rect x="20" y="27" width="12" height="2" rx="1" fill="#A89F92" />
+      <rect x="13" y="34" width="4" height="4" rx="1" fill="#E8B84B" />
+      <rect x="20" y="35" width="14" height="2" rx="1" fill="#A89F92" />
+      {/* Check marks */}
+      <path d="M14 20l1.5 1.5L17 18" stroke="white" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M14 28l1.5 1.5L17 26" stroke="white" strokeWidth="1.3" strokeLinecap="round" />
+    </>
+  )
+}
+
+function ParallelIcon() {
+  return (
+    <>
+      {/* 4 module blocks */}
+      <rect x="4"  y="4"  width="18" height="18" rx="2" fill="#1A5E8A" />
+      <rect x="26" y="4"  width="18" height="18" rx="2" fill="#884EA0" />
+      <rect x="4"  y="26" width="18" height="18" rx="2" fill="#E67E22" />
+      <rect x="26" y="26" width="18" height="18" rx="2" fill="#1A6B3A" />
+      {/* Labels */}
+      <rect x="7"  y="10" width="12" height="2" rx="1" fill="rgba(255,255,255,0.8)" />
+      <rect x="7"  y="14" width="8"  height="2" rx="1" fill="rgba(255,255,255,0.5)" />
+      <rect x="29" y="10" width="12" height="2" rx="1" fill="rgba(255,255,255,0.8)" />
+      <rect x="29" y="14" width="8"  height="2" rx="1" fill="rgba(255,255,255,0.5)" />
+      <rect x="7"  y="32" width="12" height="2" rx="1" fill="rgba(255,255,255,0.8)" />
+      <rect x="7"  y="36" width="8"  height="2" rx="1" fill="rgba(255,255,255,0.5)" />
+      <rect x="29" y="32" width="12" height="2" rx="1" fill="rgba(255,255,255,0.8)" />
+      <rect x="29" y="36" width="8"  height="2" rx="1" fill="rgba(255,255,255,0.5)" />
+    </>
+  )
+}
+
+function AIIcon() {
+  return (
+    <>
+      {/* Brain-ish shape */}
+      <rect x="10" y="10" width="28" height="28" rx="14" fill="#6C3483" />
+      <rect x="10" y="10" width="28" height="8" rx="4" fill="rgba(255,255,255,0.15)" />
+      {/* Neural nodes */}
+      <circle cx="18" cy="20" r="3" fill="white" opacity="0.9" />
+      <circle cx="30" cy="20" r="3" fill="white" opacity="0.9" />
+      <circle cx="24" cy="28" r="3" fill="white" opacity="0.9" />
+      {/* Connections */}
+      <line x1="18" y1="20" x2="30" y2="20" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      <line x1="18" y1="20" x2="24" y2="28" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      <line x1="30" y1="20" x2="24" y2="28" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      {/* Sparkle */}
+      <rect x="36" y="8"  width="4" height="4" fill="#E8B84B" />
+      <rect x="8"  y="36" width="4" height="4" fill="#E8B84B" />
+    </>
+  )
+}
+
+function RiskIcon() {
+  return (
+    <>
+      {/* Shield */}
+      <path d="M24 4L6 12V24C6 34 14 42 24 44C34 42 42 34 42 24V12L24 4Z"
+        fill="#B7770D" />
+      <path d="M24 4L6 12V24C6 34 14 42 24 44C34 42 42 34 42 24V12L24 4Z"
+        fill="rgba(255,255,255,0.08)" />
+      {/* Risk meter bars */}
+      <rect x="15" y="28" width="4" height="8"  rx="1" fill="rgba(255,255,255,0.6)" />
+      <rect x="21" y="22" width="4" height="14" rx="1" fill="rgba(255,255,255,0.8)" />
+      <rect x="27" y="18" width="4" height="18" rx="1" fill="white" />
+      {/* Top highlight */}
+      <path d="M24 4L6 12" stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
+    </>
+  )
+}
+
+function ReportIcon() {
+  return (
+    <>
+      {/* Paper */}
+      <rect x="8" y="4" width="32" height="40" rx="2" fill="#FAFAF7" stroke="#C8BFB0" strokeWidth="2" />
+      {/* Header bar */}
+      <rect x="8" y="4" width="32" height="8" rx="2" fill="#527A50" />
+      {/* Fold corner */}
+      <path d="M32 4L40 12H32V4Z" fill="rgba(0,0,0,0.15)" />
+      {/* Content lines */}
+      <rect x="12" y="16" width="24" height="2" rx="1" fill="#C8BFB0" />
+      <rect x="12" y="21" width="18" height="2" rx="1" fill="#C8BFB0" />
+      <rect x="12" y="26" width="20" height="2" rx="1" fill="#C8BFB0" />
+      {/* Risk badge */}
+      <rect x="12" y="31" width="24" height="8" rx="2" fill="#DCE8D2" />
+      <rect x="14" y="33" width="8" height="4" rx="1" fill="#527A50" />
+      <rect x="24" y="34" width="10" height="2" rx="1" fill="#A5BD91" />
+    </>
+  )
+}
+
+function StorageIcon() {
+  return (
+    <>
+      {/* Database stack */}
+      <ellipse cx="24" cy="10" rx="16" ry="6" fill="#95A5A6" />
+      <rect x="8" y="10" width="32" height="10" fill="#7F8C8D" />
+      <ellipse cx="24" cy="20" rx="16" ry="6" fill="#95A5A6" />
+      <rect x="8" y="20" width="32" height="10" fill="#7F8C8D" />
+      <ellipse cx="24" cy="30" rx="16" ry="6" fill="#95A5A6" />
+      {/* Lock icon */}
+      <rect x="19" y="12" width="10" height="8" rx="1" fill="white" opacity="0.9" />
+      <path d="M21 12V10C21 8.3 22 7 24 7C26 7 27 8.3 27 10V12" stroke="white" strokeWidth="1.5" fill="none" />
+      <circle cx="24" cy="16" r="2" fill="#7F8C8D" />
+      {/* Highlight */}
+      <ellipse cx="24" cy="10" rx="16" ry="6" fill="rgba(255,255,255,0.15)" />
+    </>
+  )
+}
+
+function PixelBlock({ size, color }) {
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      <rect width={size} height={size} fill={color} />
+      <rect width={size} height={Math.ceil(size / 4)} fill="rgba(255,255,255,0.25)" />
+    </svg>
+  )
+}

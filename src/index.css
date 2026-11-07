@@ -1,0 +1,250 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKEN SYSTEM
+   All tokens live here. Components reference via var(--…).
+   ═══════════════════════════════════════════════════════ */
+@theme {
+  /* ── Core palette ────────────────────────────────── */
+  --color-white:          #FFFFFF;
+  --color-off-white:      #FAFAF7;
+  --color-stone-light:    #F2F2ED;
+  --color-cream:          #FFFDF6;
+  --color-ivory:          #F5F3EC;
+  --color-ivory-dark:     #EAE7DE;
+
+  /* ── Forest / green ──────────────────────────────── */
+  --color-forest:         #527A50;
+  --color-forest-dark:    #3F6040;
+  --color-forest-mid:     #4A6E48;
+  --color-forest-light:   #658C63;
+  --color-sage:           #A5BD91;
+  --color-sage-light:     #C4D6B8;
+  --color-pale-green:     #DCE8D2;
+  --color-pale-green-dark:#C8D9BC;
+
+  /* ── Earthy / wood / stone ───────────────────────── */
+  --color-earth:          #A9825B;
+  --color-earth-dark:     #8A6640;
+  --color-sand:           #EDE5D6;
+  --color-stone:          #C8BFB0;
+  --color-stone-dark:     #A89F92;
+  --color-wood:           #8B6914;
+  --color-wood-light:     #B08930;
+
+  /* ── Golden accent ───────────────────────────────── */
+  --color-gold:           #C8952A;
+  --color-gold-light:     #E8B84B;
+  --color-gold-pale:      #F5E6C0;
+  --color-gold-glow:      rgba(200,149,42,0.18);
+
+  /* ── Text / charcoal ─────────────────────────────── */
+  --color-charcoal:       #2C2416;
+  --color-charcoal-mid:   #3D3020;
+  --color-charcoal-soft:  #514030;
+  --color-muted:          #7A6E5F;
+  --color-faint:          #A09078;
+
+  /* ── Borders ─────────────────────────────────────── */
+  --color-border:         #DDD8CF;
+  --color-border-light:   #E8E4DC;
+  --color-border-strong:  #C4BCB0;
+
+  /* ── Danger ──────────────────────────────────────── */
+  --color-danger:         #B5403A;
+  --color-danger-light:   #F5EAEA;
+
+  /* ── Threat arrow colours ────────────────────────── */
+  --color-arrow-phish:    #C0392B;
+  --color-arrow-malware:  #884EA0;
+  --color-arrow-redirect: #E67E22;
+  --color-arrow-link:     #1A6B3A;
+
+  /* ── Typography families ─────────────────────────── */
+  --font-display:  'Manrope',       sans-serif;
+  --font-body:     'Inter',         sans-serif;
+  --font-mono:     'IBM Plex Mono', 'Fira Code', monospace;
+  --font-pixel:    'VT323',         monospace;
+
+  /* ── Shadows (warm-tinted) ───────────────────────── */
+  --shadow-xs:    0 1px 3px  rgba(44,36,22,0.06);
+  --shadow-sm:    0 2px 8px  rgba(44,36,22,0.08), 0 1px 2px rgba(44,36,22,0.04);
+  --shadow-md:    0 4px 20px rgba(44,36,22,0.10), 0 1px 4px rgba(44,36,22,0.05);
+  --shadow-lg:    0 8px 32px rgba(44,36,22,0.12), 0 2px 8px rgba(44,36,22,0.06);
+  --shadow-stone: 0 4px 0 0  rgba(44,36,22,0.22);
+  --shadow-focus: 0 0 0 3px  rgba(82,122,80,0.22);
+  --shadow-gold:  0 2px 12px rgba(200,149,42,0.25);
+
+  /* ── Radii ───────────────────────────────────────── */
+  --radius-sm:    6px;
+  --radius-md:    10px;
+  --radius-lg:    14px;
+  --radius-xl:    18px;
+  --radius-2xl:   24px;
+  --radius-pill:  999px;
+
+  /* ── Easing curves ───────────────────────────────── */
+  --ease-spring:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out:     cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:  cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-bounce:  cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--color-charcoal-soft);
+  background-color: var(--color-white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--color-charcoal);
+}
+
+code, kbd, pre, samp {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background-color: var(--color-pale-green);
+  color: var(--color-charcoal);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-forest);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar        { width: 5px; }
+::-webkit-scrollbar-track  { background: var(--color-stone-light); }
+::-webkit-scrollbar-thumb  { background: var(--color-sage); border-radius: 99px; }
+
+/* ═══════════════════════════════════════════════════════
+   ANIMATION KEYFRAMES
+   ═══════════════════════════════════════════════════════ */
+
+/* Island gentle float */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+/* Floating block bobbing */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33%       { transform: translateY(-7px) rotate(1deg); }
+  66%       { transform: translateY(-4px) rotate(-1deg); }
+}
+
+/* Cloud drift left → right */
+@keyframes cloud-drift {
+  0%   { transform: translateX(-8px); }
+  100% { transform: translateX(8px); }
+}
+
+/* Threat arrow approaching */
+@keyframes arrow-fly {
+  0%   { transform: translateX(0)     translateY(0)     opacity: 1; }
+  60%  { transform: translateX(-55px) translateY(8px);  opacity: 1; }
+  80%  { transform: translateX(-60px) translateY(0);    opacity: 1; }
+  100% { transform: translateX(-30px) translateY(-8px); opacity: 0; }
+}
+
+/* Shield pulse when blocking */
+@keyframes shield-pulse {
+  0%   { filter: drop-shadow(0 0 0px rgba(82,122,80,0)); }
+  40%  { filter: drop-shadow(0 0 12px rgba(200,149,42,0.6)); }
+  100% { filter: drop-shadow(0 0 0px rgba(82,122,80,0)); }
+}
+
+/* Golden glow ring */
+@keyframes gold-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(200,149,42,0.45); }
+  70%  { box-shadow: 0 0 0 10px rgba(200,149,42,0); }
+  100% { box-shadow: 0 0 0 0 rgba(200,149,42,0); }
+}
+
+/* Spin for loading */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Fade up entrance */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scale entrance for cards */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+/* Pixel sparkle */
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50%       { opacity: 1; transform: scale(1.2); }
+}
+
+/* Stage connector draw */
+@keyframes connector-draw {
+  from { stroke-dashoffset: 120; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   REDUCED MOTION — override all animations
+   ═══════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:        0.01ms !important;
+    animation-iteration-count: 1      !important;
+    transition-duration:       0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   GLOBAL UTILITY CLASSES
+   ═══════════════════════════════════════════════════════ */
+
+/* Pixel font helper */
+.font-pixel { font-family: var(--font-pixel); }
+
+/* Stone-block border treatment */
+.block-border {
+  border: 2px solid var(--color-border-strong);
+  box-shadow: var(--shadow-stone);
+}
+
+/* Section container */
+.section-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left:  clamp(1.25rem, 5vw, 3rem);
+  padding-right: clamp(1.25rem, 5vw, 3rem);
+}
