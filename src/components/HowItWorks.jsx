@@ -146,10 +146,21 @@ export default function HowItWorks() {
       </div>
 
       <style>{`
-        @media (max-width: 768px) {
+        @media (max-width: 860px) {
           .hide-on-mobile { display: none !important; }
-          .stage-left, .stage-right { flex-direction: column !important; }
+          .stage-left, .stage-right {
+            flex-direction: column !important;
+            gap: 0 !important;
+            margin-bottom: 1.5rem !important;
+          }
+          .stage-content-wrap {
+            width: 100% !important;
+            max-width: 600px !important;
+            margin: 0 auto !important;
+          }
           .stage-spacer { display: none !important; }
+          .stage-desktop-icon { display: none !important; }
+          .stage-mobile-icon { display: flex !important; }
         }
       `}</style>
     </section>
@@ -174,7 +185,7 @@ function StageCard({ stage, index }) {
       className={isLeft ? 'stage-left' : 'stage-right'}
     >
       {/* Content side */}
-      <div style={{ flex: 1 }}>
+      <div className="stage-content-wrap" style={{ flex: 1 }}>
         <div
           style={{
             backgroundColor: 'var(--color-white)',
@@ -185,22 +196,49 @@ function StageCard({ stage, index }) {
             position: 'relative',
           }}
         >
-          {/* Stage badge */}
+          {/* Card Top: Stage badge + integrated mobile icon */}
           <div style={{
-            display: 'inline-flex',
+            display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            backgroundColor: color,
-            color: '#fff',
-            fontFamily: 'var(--font-pixel)',
-            fontSize: '0.82rem',
-            padding: '3px 10px',
-            borderRadius: '4px',
+            justifyContent: 'space-between',
             marginBottom: '10px',
-            letterSpacing: '0.04em',
           }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.7rem' }}>{num}</span>
-            {badge.toUpperCase()}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: color,
+              color: '#fff',
+              fontFamily: 'var(--font-pixel)',
+              fontSize: '0.85rem',
+              padding: '3px 10px',
+              borderRadius: '4px',
+              letterSpacing: '0.04em',
+            }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.72rem' }}>{num}</span>
+              {badge.toUpperCase()}
+            </div>
+
+            {/* Mobile / tablet pixel icon in header */}
+            <div
+              className="stage-mobile-icon"
+              style={{
+                display: 'none',
+                width: '42px',
+                height: '42px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--color-stone-light)',
+                border: '2px solid var(--color-border)',
+                boxShadow: '0 2px 0 var(--color-border)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                {icon}
+              </svg>
+            </div>
           </div>
 
           <h3 style={{
@@ -245,7 +283,7 @@ function StageCard({ stage, index }) {
         </div>
       </div>
 
-      {/* Centre node — number circle */}
+      {/* Centre node — number circle (desktop only) */}
       <div
         className="stage-spacer"
         style={{
@@ -275,8 +313,11 @@ function StageCard({ stage, index }) {
         </span>
       </div>
 
-      {/* Icon side */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: isLeft ? 'flex-start' : 'flex-end' }}>
+      {/* Icon side (desktop only) */}
+      <div
+        className="stage-desktop-icon"
+        style={{ flex: 1, display: 'flex', justifyContent: isLeft ? 'flex-start' : 'flex-end' }}
+      >
         <div
           style={{
             width: '80px',

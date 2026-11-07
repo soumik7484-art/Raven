@@ -205,6 +205,7 @@ export default function Scanner() {
 
             {/* Input bar */}
             <div
+              className="scanner-input-box"
               style={{
                 display: 'flex',
                 alignItems: 'stretch',
@@ -225,73 +226,85 @@ export default function Scanner() {
                 }
               }}
             >
-              {/* Globe prefix */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                paddingLeft: '14px',
-                flexShrink: 0,
-              }}>
-                <GlobeIcon />
-              </div>
-
-              {/* Input */}
-              <input
-                id="url-input"
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Enter a website URL (e.g. https://example.com)"
-                disabled={isLoading}
-                autoComplete="url"
-                autoCapitalize="none"
-                spellCheck={false}
-                aria-label="Website URL to investigate"
-                aria-describedby={valErr ? 'url-error' : undefined}
+              {/* Field row with globe & input */}
+              <div
+                className="scanner-field-row"
                 style={{
+                  display: 'flex',
+                  alignItems: 'center',
                   flex: 1,
                   minWidth: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  padding: '15px 10px 15px 12px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.9rem',
-                  color: 'var(--color-charcoal)',
-                  caretColor: 'var(--color-forest)',
                 }}
-              />
+              >
+                {/* Globe prefix */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  paddingLeft: '14px',
+                  flexShrink: 0,
+                }}>
+                  <GlobeIcon />
+                </div>
 
-              {/* Clear */}
-              {input && !isLoading && (
-                <button
-                  type="button"
-                  onClick={clearInput}
-                  aria-label="Clear URL"
+                {/* Input */}
+                <input
+                  id="url-input"
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Enter a website URL (e.g. https://example.com)"
+                  disabled={isLoading}
+                  autoComplete="url"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  aria-label="Website URL to investigate"
+                  aria-describedby={valErr ? 'url-error' : undefined}
                   style={{
-                    flexShrink: 0,
-                    padding: '0 10px',
-                    background: 'none',
+                    flex: 1,
+                    minWidth: 0,
+                    background: 'transparent',
                     border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--color-stone)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    transition: 'color 0.15s',
+                    outline: 'none',
+                    padding: '15px 10px 15px 12px',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.9rem',
+                    color: 'var(--color-charcoal)',
+                    caretColor: 'var(--color-forest)',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-charcoal)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-stone)')}
-                >
-                  <XIcon />
-                </button>
-              )}
+                />
+
+                {/* Clear */}
+                {input && !isLoading && (
+                  <button
+                    type="button"
+                    onClick={clearInput}
+                    aria-label="Clear URL"
+                    style={{
+                      flexShrink: 0,
+                      padding: '0 10px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--color-stone)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-charcoal)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-stone)')}
+                  >
+                    <XIcon />
+                  </button>
+                )}
+              </div>
 
               {/* Divider */}
-              <div style={{ width: '1px', backgroundColor: 'var(--color-border)', margin: '8px 0' }} />
+              <div className="scanner-divider" style={{ width: '1px', backgroundColor: 'var(--color-border)', margin: '8px 0' }} />
 
               {/* Submit */}
               <button
                 type="submit"
+                className="scanner-submit-btn"
                 disabled={isLoading || !input.trim()}
                 aria-label="Run security investigation"
                 style={{
@@ -407,6 +420,35 @@ export default function Scanner() {
           onReset={reset}
         />
       </div>
+
+      <style>{`
+        @media (max-width: 540px) {
+          .scanner-input-box {
+            flex-direction: column !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            gap: 10px !important;
+          }
+          .scanner-field-row {
+            background-color: var(--color-off-white) !important;
+            border: 2px solid var(--color-border) !important;
+            border-radius: 8px !important;
+            width: 100% !important;
+          }
+          .scanner-divider {
+            display: none !important;
+          }
+          .scanner-submit-btn {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 13px 20px !important;
+            justify-content: center !important;
+            border-radius: 8px !important;
+          }
+        }
+      `}</style>
     </section>
   )
 }

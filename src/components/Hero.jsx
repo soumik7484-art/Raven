@@ -69,6 +69,7 @@ export default function Hero() {
 
       {/* Main content */}
       <div
+        id="hero-grid"
         className="section-container"
         style={{
           position: 'relative',
@@ -82,9 +83,10 @@ export default function Hero() {
         }}
       >
         {/* ── LEFT: Text content ── */}
-        <div>
+        <div id="hero-text-col">
           {/* Category badge */}
           <div
+            className="hero-badge-wrap"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -143,7 +145,7 @@ export default function Hero() {
           </p>
 
           {/* CTAs */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '2rem' }}>
+          <div className="hero-cta-group" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '2rem' }}>
             <HeroPrimaryBtn />
             <HeroSecondaryBtn />
           </div>
@@ -154,6 +156,7 @@ export default function Hero() {
 
         {/* ── RIGHT: Animated island ── */}
         <div
+          id="hero-island-col"
           aria-hidden="true"
           style={{
             position: 'relative',
@@ -166,11 +169,42 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* Responsive: stack on mobile */}
+      {/* Responsive: stack cleanly on mobile & tablet while preserving animation */}
       <style>{`
-        @media (max-width: 768px) {
-          #hero-grid { grid-template-columns: 1fr !important; }
-          #hero-island { display: none !important; }
+        @media (max-width: 900px) {
+          #hero-grid {
+            grid-template-columns: 1fr !important;
+            gap: 2.5rem !important;
+            padding-top: clamp(2.5rem, 6vw, 4rem) !important;
+            padding-bottom: clamp(2.5rem, 6vw, 4rem) !important;
+          }
+          #hero-text-col {
+            text-align: center !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+          }
+          #hero-text-col p {
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+          .hero-cta-group {
+            justify-content: center !important;
+          }
+          .hero-trust-badges {
+            justify-content: center !important;
+          }
+          #hero-island-col {
+            width: 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+          }
+          #hero-island {
+            display: block !important;
+            width: 100% !important;
+            max-width: min(100%, 460px) !important;
+            margin: 0 auto !important;
+          }
         }
       `}</style>
     </section>
@@ -269,7 +303,7 @@ function TrustRow() {
     'Risk Scoring',
   ]
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+    <div className="hero-trust-badges" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
       {badges.map((b) => (
         <span
           key={b}

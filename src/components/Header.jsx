@@ -99,6 +99,7 @@ export default function Header() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
             <a
               href="#scanner"
+              className="header-cta-btn"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -227,6 +228,9 @@ export default function Header() {
         @media (min-width: 901px) {
           .show-mobile   { display: none !important; }
           .hidden-mobile { display: flex !important; }
+        }
+        @media (max-width: 580px) {
+          .header-cta-btn { display: none !important; }
         }
       `}</style>
     </>
