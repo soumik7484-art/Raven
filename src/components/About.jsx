@@ -1,7 +1,7 @@
 /**
  * About — HackMatrix (Pixel-Art Cyber World Console & Manifesto)
  *
- * Details the HackMatrix mission, cyber defense pillars, and operational coordinates
+ * Details the HackMatrix mission and cyber defense pillars
  * within a cohesive Minecraft-inspired pixel-art presentation matching the light theme.
  */
 
@@ -177,7 +177,7 @@ export default function About() {
           ))}
         </div>
 
-        {/* Cyber Core Coordinates & Lore Box */}
+        {/* Cyber Core Intelligence & Action Box */}
         <div
           style={{
             backgroundColor: '#ffffff',
@@ -192,35 +192,13 @@ export default function About() {
             gap: '16px',
           }}
         >
-          <div>
-            <div
-              style={{
-                fontFamily: 'var(--font-pixel)',
-                fontSize: '0.7rem',
-                color: '#3a7a3a',
-                letterSpacing: '0.08em',
-                marginBottom: '6px',
-              }}
-            >
-              [CYBER_CORE_COORDINATES]
-            </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.82rem',
-                fontWeight: 700,
-                color: '#111',
-              }}
-            >
-              LOC: 3.4°S / 137.4°E • SECTOR 07 • HACKMATRIX PRIME
-            </div>
+          <div style={{ flex: '1 1 300px', maxWidth: '640px' }}>
             <div
               style={{
                 fontFamily: 'var(--font-body)',
-                fontSize: '0.78rem',
+                fontSize: '0.8rem',
                 lineHeight: 1.6,
-                color: '#666',
-                marginTop: '6px',
+                color: '#555',
               }}
             >
               Powered by advanced neural heuristics, distributed threat crawlers, and community intelligence.
