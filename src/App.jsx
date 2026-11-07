@@ -4,15 +4,20 @@ import Header from './components/Header'
 import Hero from './components/Hero'
 import HowItWorks from './components/HowItWorks'
 import Scanner from './components/Scanner'
+import ThreatIntel from './components/ThreatIntel'
+import About from './components/About'
 import Footer from './components/Footer'
 
 export default function App() {
-  const [entered, setEntered] = useState(false)
+  const [entered, setEntered] = useState(
+    () => sessionStorage.getItem('hm_entered') === 'true'
+  )
   const [transitioning, setTransitioning] = useState(false)
 
   const handleEnter = () => {
     setTransitioning(true)
     setTimeout(() => {
+      sessionStorage.setItem('hm_entered', 'true')
       setEntered(true)
       setTransitioning(false)
       window.scrollTo({ top: 0, behavior: 'instant' })
@@ -57,6 +62,8 @@ export default function App() {
         <Hero />
         <HowItWorks />
         <Scanner />
+        <ThreatIntel />
+        <About />
       </main>
 
       <Footer />

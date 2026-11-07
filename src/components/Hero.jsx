@@ -2,13 +2,13 @@ import { useRef, useEffect } from 'react'
 import CyberHeroAnimation from './CyberHeroAnimation'
 
 /**
- * Hero — HackMatrix
+ * Hero â€” HackMatrix
  *
  * Split layout:
- *   Left  — headline, description, CTAs, trust badges
- *   Right — animated Minecraft-inspired floating island scene
+ *   Left  â€” headline, description, CTAs, trust badges
+ *   Right â€” animated Minecraft-inspired floating island scene
  *
- * No opacity:0 initial states on text content — always readable.
+ * No opacity:0 initial states on text content â€” always readable.
  */
 export default function Hero() {
   const videoRef = useRef(null)
@@ -32,6 +32,7 @@ export default function Hero() {
 
   return (
     <section
+      id="home"
       aria-labelledby="hero-heading"
       style={{
         position: 'relative',
@@ -40,7 +41,7 @@ export default function Hero() {
         borderBottom: '1px solid var(--color-border-light)',
       }}
     >
-      {/* ── 1. Video background (bottom layer, strictly muted with 0 sound) ── */}
+      {/* â”€â”€ 1. Video background (bottom layer, strictly muted with 0 sound) â”€â”€ */}
       <video
         ref={videoRef}
         autoPlay
@@ -68,7 +69,7 @@ export default function Hero() {
         <source src="/homevideo.mp4" type="video/mp4" />
       </video>
 
-      {/* ── 2. Subtle translucent white overlay ── */}
+      {/* â”€â”€ 2. Subtle translucent white overlay â”€â”€ */}
       <div
         aria-hidden="true"
         style={{
@@ -97,7 +98,7 @@ export default function Hero() {
           paddingBottom: 'clamp(4rem, 8vw, 6rem)',
         }}
       >
-        {/* ── LEFT: Text content ── */}
+        {/* â”€â”€ LEFT: Text content â”€â”€ */}
         <div id="hero-text-col">
           {/* Category badge */}
           <div
@@ -156,7 +157,7 @@ export default function Hero() {
           }}>
             Investigate suspicious websites with intelligent phishing detection,
             threat intelligence, certificate validation, and website security
-            assessment — all in one place.
+            assessment â€” all in one place.
           </p>
 
           {/* CTAs */}
@@ -169,7 +170,7 @@ export default function Hero() {
           <TrustRow />
         </div>
 
-        {/* ── RIGHT: 3D Cybersecurity Animation ── */}
+        {/* â”€â”€ RIGHT: 3D Cybersecurity Animation â”€â”€ */}
         <div
           id="hero-island-col"
           aria-hidden="true"
@@ -226,9 +227,9 @@ export default function Hero() {
   )
 }
 
-/* ─────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CTA Buttons
-   ───────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function HeroPrimaryBtn() {
   return (
     <a
@@ -307,9 +308,9 @@ function HeroSecondaryBtn() {
   )
 }
 
-/* ─────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Trust badges row
-   ───────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function TrustRow() {
   const badges = [
     'Phishing Detection',
@@ -339,3 +340,4 @@ function TrustRow() {
     </div>
   )
 }
+

@@ -4,36 +4,39 @@ import { useState } from 'react'
  * Header — HackMatrix
  *
  * Sticky frosted-glass nav with:
- *   Left:   Pixel-art logomark + wordmark
- *   Centre: 9-link navigation (desktop)
+ *   Left:   Pixel-art logomark + wordmark (click to scroll to top)
+ *   Centre: 5-link clean navigation (desktop)
  *   Right:  "Check a Website" CTA
  *   Mobile: Hamburger menu with full-screen drawer
  */
 
 const NAV_LINKS = [
-  { label: 'Home',             href: '#home' },
-  { label: 'How It Works',     href: '#how-it-works' },
-  { label: 'Scanner',          href: '#scanner' },
-  { label: 'Threat Intel',     href: '#threat-intel' },
-  { label: 'Digital Trust',    href: '#digital-trust' },
-  { label: 'Assessment',       href: '#assessment' },
-  { label: 'Technology',       href: '#technology' },
-  { label: 'Reports',          href: '#reports' },
-  { label: 'About',            href: '#about' },
+  { label: 'Home',         href: '#home' },
+  { label: 'How It Works', href: '#how-it-works' },
+  { label: 'Scanner',      href: '#scanner' },
+  { label: 'Threat Intel', href: '#threat-intel' },
+  { label: 'About',        href: '#about' },
 ]
 
 export default function Header() {
   const [open, setOpen] = useState(false)
 
+  const scrollToHome = (e) => {
+    e.preventDefault()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      window.history.pushState(null, '', '#home')
+    } catch {}
+  }
+
   return (
     <>
       <header
-        id="home"
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 100,
-          backgroundColor: 'rgba(250,250,247,0.90)',
+          backgroundColor: 'rgba(250,250,247,0.92)',
           backdropFilter:       'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
           borderBottom: '1px solid var(--color-border-light)',
@@ -47,34 +50,37 @@ export default function Header() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '1rem',
+            gap: '0.75rem',
           }}
         >
           {/* ── Logo ── */}
           <a
-            href="/"
+            href="#home"
+            onClick={scrollToHome}
             aria-label="HackMatrix home"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
+              gap: '8px',
               textDecoration: 'none',
               flexShrink: 0,
+              cursor: 'pointer',
             }}
           >
             <PixelLogoMark />
             <span
               style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: '1.0625rem',
+                fontSize: '0.62rem',
                 fontWeight: 800,
-                letterSpacing: '-0.03em',
+                letterSpacing: '0',
+                wordSpacing: '-3px',
                 color: 'var(--color-charcoal)',
                 lineHeight: 1,
+                whiteSpace: 'nowrap',
               }}
             >
-              Hack
-              <span style={{ color: 'var(--color-forest)' }}>Matrix</span>
+              Hack<span style={{ color: 'var(--color-forest)' }}>Matrix</span>
             </span>
           </a>
 
@@ -84,9 +90,10 @@ export default function Header() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0',
               flex: 1,
               justifyContent: 'center',
+              gap: '4px',
+              overflow: 'hidden',
             }}
             className="hidden-mobile"
           >
@@ -96,7 +103,7 @@ export default function Header() {
           </nav>
 
           {/* ── Right: CTA + hamburger ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <a
               href="#scanner"
               className="header-cta-btn"
@@ -107,11 +114,12 @@ export default function Header() {
                 backgroundColor: 'var(--color-forest)',
                 color: '#fff',
                 fontFamily: 'var(--font-display)',
-                fontSize: '0.875rem',
+                fontSize: '0.45rem',
                 fontWeight: 700,
-                letterSpacing: '-0.01em',
-                padding: '9px 18px',
-                borderRadius: '8px',
+                letterSpacing: '0',
+                wordSpacing: '-2px',
+                padding: '8px 12px',
+                borderRadius: '5px',
                 textDecoration: 'none',
                 border: '2px solid var(--color-forest-dark)',
                 boxShadow: '0 3px 0 var(--color-forest-dark)',
@@ -178,17 +186,27 @@ export default function Header() {
               <a
                 key={link.href}
                 href={link.href}
-                onClick={() => setOpen(false)}
+                onClick={(e) => {
+                  setOpen(false)
+                  if (link.href === '#home') {
+                    e.preventDefault()
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                    try {
+                      window.history.pushState(null, '', '#home')
+                    } catch {}
+                  }
+                }}
                 style={{
                   display: 'block',
                   padding: '14px 0',
                   borderBottom: '1px solid var(--color-border-light)',
                   fontFamily: 'var(--font-display)',
-                  fontSize: '1.2rem',
+                  fontSize: '0.55rem',
                   fontWeight: 600,
                   color: 'var(--color-charcoal)',
                   textDecoration: 'none',
-                  letterSpacing: '-0.02em',
+                  letterSpacing: '0',
+                  wordSpacing: '-4px',
                 }}
               >
                 {link.label}
@@ -203,7 +221,7 @@ export default function Header() {
                 backgroundColor: 'var(--color-forest)',
                 color: '#fff',
                 fontFamily: 'var(--font-display)',
-                fontSize: '1.1rem',
+                fontSize: '0.55rem',
                 fontWeight: 700,
                 padding: '14px 24px',
                 borderRadius: '8px',
@@ -211,6 +229,7 @@ export default function Header() {
                 textAlign: 'center',
                 border: '2px solid var(--color-forest-dark)',
                 boxShadow: '0 4px 0 var(--color-forest-dark)',
+                wordSpacing: '-3px',
               }}
             >
               Check a Website
@@ -221,17 +240,19 @@ export default function Header() {
 
       {/* ── Inline responsive helpers ── */}
       <style>{`
-        @media (max-width: 900px) {
+        @media (max-width: 860px) {
           .hidden-mobile { display: none !important; }
           .show-mobile   { display: flex !important; }
+          .header-cta-btn { display: none !important; }
         }
-        @media (min-width: 901px) {
+        @media (min-width: 861px) {
           .show-mobile   { display: none !important; }
           .hidden-mobile { display: flex !important; }
         }
         @media (max-width: 580px) {
           .header-cta-btn { display: none !important; }
         }
+        nav::-webkit-scrollbar { display: none; }
       `}</style>
     </>
   )
@@ -239,19 +260,33 @@ export default function Header() {
 
 /* ── Desktop nav link ── */
 function NavLink({ href, label }) {
+  const handleClick = (e) => {
+    if (href === '#home') {
+      e.preventDefault()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      try {
+        window.history.pushState(null, '', '#home')
+      } catch {}
+    }
+  }
+
   return (
     <a
       href={href}
+      onClick={handleClick}
       style={{
         padding: '6px 10px',
         fontFamily: 'var(--font-body)',
-        fontSize: '0.84rem',
+        fontSize: '0.48rem',
         fontWeight: 500,
         color: 'var(--color-muted)',
         textDecoration: 'none',
-        borderRadius: '6px',
+        borderRadius: '4px',
         transition: 'color 0.15s ease, background-color 0.15s ease',
         whiteSpace: 'nowrap',
+        lineHeight: 1.4,
+        letterSpacing: '-0.02em',
+        wordSpacing: '-4px',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.color = 'var(--color-charcoal)'
@@ -271,7 +306,7 @@ function NavLink({ href, label }) {
 function PixelLogoMark() {
   return (
     <svg
-      width="36" height="36"
+      width="28" height="28"
       viewBox="0 0 36 36"
       fill="none"
       aria-hidden="true"
@@ -297,15 +332,13 @@ function PixelLogoMark() {
       <rect x="15" y="24" width="4" height="4" fill="white" opacity="0.5" />
       {/* Bottom shadow */}
       <rect x="0" y="30" width="36" height="6" rx="0" fill="rgba(0,0,0,0.18)" />
-      <rect x="0" y="30" width="36" height="6" rx="0" fill="transparent"
-        style={{ borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }} />
     </svg>
   )
 }
 
 function ShieldMiniIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path d="M7 1.5L2 3.5V7.5C2 10 4.2 12.2 7 13C9.8 12.2 12 10 12 7.5V3.5L7 1.5Z"
         fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.9)" strokeWidth="1.1" strokeLinejoin="round" />
       <path d="M5 7.2L6.2 8.4L9.5 5.5" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
