@@ -43,7 +43,7 @@ const THREATS = [
     iconBg: '#f5f0ff',
     iconBorder: '#7c3aed',
     name: 'RANSOM GOLEM',
-    desc: 'Encapsulates data blocks in unbreakable cryptographic cages, demanding hostage fees.',
+    desc: 'Encrypts critical data blocks behind impenetrable cryptographic locks, demanding extortion ransoms.',
     tags: ['AES-256 Trap', 'C2 Callback', 'Extortion'],
     tagColors: ['#7c3aed', '#7c3aed', '#7c3aed'],
     cardBorder: '#2a2a2a',
@@ -57,7 +57,7 @@ const THREATS = [
     iconBg: '#fff8f0',
     iconBorder: '#e67e22',
     name: 'DNS GHAST',
-    desc: 'Floats between authoritative nameservers, poisoning cache entries to reroute legitimate traffic.',
+    desc: 'Infiltrates authoritative nameservers, poisoning cache entries to reroute legitimate traffic.',
     tags: ['Cache Poison', 'BGP Anomaly', 'Fast Flux'],
     tagColors: ['#e67e22', '#e67e22', '#e67e22'],
     cardBorder: '#2a2a2a',
@@ -104,7 +104,7 @@ export default function ThreatIntel() {
             alignItems: 'center',
             gap: '8px',
             fontFamily: 'var(--font-pixel)',
-            fontSize: '0.45rem',
+            fontSize: '0.72rem',
             color: '#1a1a1a',
             letterSpacing: '0.12em',
             marginBottom: '1.25rem',
@@ -134,7 +134,7 @@ export default function ThreatIntel() {
           </h2>
           <h3 style={{
             fontFamily: 'var(--font-pixel)',
-            fontSize: 'clamp(0.7rem, 2vw, 1.2rem)',
+            fontSize: 'clamp(0.75rem, 2vw, 1.1rem)',
             fontWeight: 400,
             letterSpacing: '0.06em',
             color: '#cc2222',
@@ -146,13 +146,13 @@ export default function ThreatIntel() {
           {/* Subtitle */}
           <p style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.55rem',
+            fontSize: '0.8rem',
             color: '#555',
-            lineHeight: 2,
-            maxWidth: '500px',
+            lineHeight: 1.8,
+            maxWidth: '620px',
             margin: '0 auto',
           }}>
-            Every web attack vector is classified into behavioral pixel entity profiles<br />
+            Every web attack vector is classified into behavioral threat entity profiles,
             monitored 24/7 across our global threat telemetry grid.
           </p>
         </div>
@@ -160,7 +160,7 @@ export default function ThreatIntel() {
         {/* ── Cards grid ── */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: '20px',
         }}>
           {THREATS.map((t) => (
@@ -199,17 +199,17 @@ function ThreatCard({ threat: t }) {
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        padding: '8px 12px',
+        padding: '10px 14px',
         backgroundColor: '#f8f8f5',
         borderBottom: '1px solid #e0e0da',
       }}>
         {/* Severity badge */}
         <span style={{
           fontFamily: 'var(--font-pixel)',
-          fontSize: '0.32rem',
+          fontSize: '0.68rem',
           color: '#fff',
           backgroundColor: t.severityColor,
-          padding: '3px 7px',
+          padding: '4px 8px',
           borderRadius: '2px',
           letterSpacing: '0.08em',
           whiteSpace: 'nowrap',
@@ -219,9 +219,9 @@ function ThreatCard({ threat: t }) {
         {/* Type label */}
         <span style={{
           fontFamily: 'var(--font-pixel)',
-          fontSize: '0.3rem',
-          color: '#666',
-          letterSpacing: '0.08em',
+          fontSize: '0.68rem',
+          color: '#555',
+          letterSpacing: '0.06em',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -231,18 +231,18 @@ function ThreatCard({ threat: t }) {
       </div>
 
       {/* Card body */}
-      <div style={{ padding: '16px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ padding: '18px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {/* Icon */}
         <div style={{
-          width: '48px',
-          height: '48px',
+          width: '50px',
+          height: '50px',
           backgroundColor: t.iconBg,
           border: `2px solid ${t.iconBorder}`,
           borderRadius: '4px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '1.4rem',
+          fontSize: '1.5rem',
           imageRendering: 'pixelated',
         }}>
           {t.icon}
@@ -251,11 +251,11 @@ function ThreatCard({ threat: t }) {
         {/* Name */}
         <h4 style={{
           fontFamily: 'var(--font-pixel)',
-          fontSize: '0.5rem',
+          fontSize: '0.8rem',
           fontWeight: 400,
           color: '#111',
           letterSpacing: '0.04em',
-          lineHeight: 1.5,
+          lineHeight: 1.4,
           margin: 0,
         }}>
           {t.name}
@@ -264,9 +264,9 @@ function ThreatCard({ threat: t }) {
         {/* Description */}
         <p style={{
           fontFamily: 'var(--font-body)',
-          fontSize: '0.45rem',
+          fontSize: '0.75rem',
           color: '#555',
-          lineHeight: 1.9,
+          lineHeight: 1.8,
           margin: 0,
           flex: 1,
         }}>
@@ -274,18 +274,18 @@ function ThreatCard({ threat: t }) {
         </p>
 
         {/* Tags */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '4px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
           {t.tags.map((tag) => (
             <span
               key={tag}
               style={{
                 fontFamily: 'var(--font-pixel)',
-                fontSize: '0.3rem',
+                fontSize: '0.65rem',
                 color: t.severityColor,
                 border: `1px solid ${t.severityColor}`,
-                padding: '3px 8px',
+                padding: '4px 8px',
                 borderRadius: '2px',
-                letterSpacing: '0.06em',
+                letterSpacing: '0.04em',
                 whiteSpace: 'nowrap',
               }}
             >

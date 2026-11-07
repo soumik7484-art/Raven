@@ -61,7 +61,7 @@ export default function Header() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '10px',
               textDecoration: 'none',
               flexShrink: 0,
               cursor: 'pointer',
@@ -71,10 +71,9 @@ export default function Header() {
             <span
               style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: '0.62rem',
+                fontSize: '0.85rem',
                 fontWeight: 800,
-                letterSpacing: '0',
-                wordSpacing: '-3px',
+                letterSpacing: '0.02em',
                 color: 'var(--color-charcoal)',
                 lineHeight: 1,
                 whiteSpace: 'nowrap',
@@ -92,7 +91,7 @@ export default function Header() {
               alignItems: 'center',
               flex: 1,
               justifyContent: 'center',
-              gap: '4px',
+              gap: '6px',
               overflow: 'hidden',
             }}
             className="hidden-mobile"
@@ -110,15 +109,14 @@ export default function Header() {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '8px',
                 backgroundColor: 'var(--color-forest)',
                 color: '#fff',
                 fontFamily: 'var(--font-display)',
-                fontSize: '0.45rem',
+                fontSize: '0.72rem',
                 fontWeight: 700,
-                letterSpacing: '0',
-                wordSpacing: '-2px',
-                padding: '8px 12px',
+                letterSpacing: '0.04em',
+                padding: '9px 14px',
                 borderRadius: '5px',
                 textDecoration: 'none',
                 border: '2px solid var(--color-forest-dark)',
@@ -198,15 +196,14 @@ export default function Header() {
                 }}
                 style={{
                   display: 'block',
-                  padding: '14px 0',
+                  padding: '16px 0',
                   borderBottom: '1px solid var(--color-border-light)',
                   fontFamily: 'var(--font-display)',
-                  fontSize: '0.55rem',
+                  fontSize: '0.82rem',
                   fontWeight: 600,
                   color: 'var(--color-charcoal)',
                   textDecoration: 'none',
-                  letterSpacing: '0',
-                  wordSpacing: '-4px',
+                  letterSpacing: '0.04em',
                 }}
               >
                 {link.label}
@@ -221,7 +218,7 @@ export default function Header() {
                 backgroundColor: 'var(--color-forest)',
                 color: '#fff',
                 fontFamily: 'var(--font-display)',
-                fontSize: '0.55rem',
+                fontSize: '0.82rem',
                 fontWeight: 700,
                 padding: '14px 24px',
                 borderRadius: '8px',
@@ -229,7 +226,7 @@ export default function Header() {
                 textAlign: 'center',
                 border: '2px solid var(--color-forest-dark)',
                 boxShadow: '0 4px 0 var(--color-forest-dark)',
-                wordSpacing: '-3px',
+                letterSpacing: '0.04em',
               }}
             >
               Check a Website
@@ -275,9 +272,9 @@ function NavLink({ href, label }) {
       href={href}
       onClick={handleClick}
       style={{
-        padding: '6px 10px',
-        fontFamily: 'var(--font-body)',
-        fontSize: '0.48rem',
+        padding: '8px 12px',
+        fontFamily: 'var(--font-pixel)',
+        fontSize: '0.72rem',
         fontWeight: 500,
         color: 'var(--color-muted)',
         textDecoration: 'none',
@@ -285,8 +282,7 @@ function NavLink({ href, label }) {
         transition: 'color 0.15s ease, background-color 0.15s ease',
         whiteSpace: 'nowrap',
         lineHeight: 1.4,
-        letterSpacing: '-0.02em',
-        wordSpacing: '-4px',
+        letterSpacing: '0.04em',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.color = 'var(--color-charcoal)'

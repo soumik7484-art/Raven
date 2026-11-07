@@ -20,7 +20,7 @@ const STAGES = [
   {
     num: '02',
     title: 'Validation & Safety',
-    desc: 'The URL is validated, normalised, and checked for formatting. Safe request restrictions are applied before investigation begins.',
+    desc: 'The URL is validated, normalized, and checked for formatting. Safe request restrictions are applied before the investigation begins.',
     icon: <ValidateIcon />,
     color: '#8B6914',
     badge: 'Checks',
@@ -45,7 +45,7 @@ const STAGES = [
   {
     num: '05',
     title: 'Risk Intelligence Engine',
-    desc: 'Evidence is combined, conflicting signals reconciled, unavailable checks accounted for, and an explainable risk score calculated.',
+    desc: 'Evidence is synthesized, conflicting signals are reconciled, and an explainable risk score is calculated.',
     icon: <RiskIcon />,
     color: '#B7770D',
     badge: 'Scoring',
@@ -108,16 +108,15 @@ export default function HowItWorks() {
     >
       <div className="section-container">
         {/* Section header */}
-        <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto', marginBottom: '4rem' }}>
+        <div style={{ textAlign: 'center', maxWidth: '680px', margin: '0 auto', marginBottom: '4rem' }}>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
             fontFamily: 'var(--font-pixel)',
-            fontSize: '0.45rem',
+            fontSize: '0.72rem',
             color: 'var(--color-stone-dark)',
-            letterSpacing: '0.04em',
-            wordSpacing: '-4px',
+            letterSpacing: '0.06em',
             marginBottom: '1rem',
           }}>
             <PixelBlock size={10} color="var(--color-earth)" />
@@ -127,10 +126,9 @@ export default function HowItWorks() {
             id="how-heading"
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(1.1rem, 3vw, 1.8rem)',
+              fontSize: 'clamp(1.2rem, 3vw, 1.8rem)',
               fontWeight: 800,
               letterSpacing: '0',
-              wordSpacing: '-4px',
               lineHeight: 1.3,
               color: 'var(--color-charcoal)',
               marginBottom: '1rem',
@@ -141,12 +139,12 @@ export default function HowItWorks() {
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.6rem',
+            fontSize: '0.82rem',
             color: 'var(--color-muted)',
-            lineHeight: 2,
+            lineHeight: 1.8,
           }}>
             Every URL submission triggers a multi-layer security investigation pipeline,
-            from input to archived intelligence report.
+            from input to verified intelligence report.
           </p>
         </div>
 
@@ -306,7 +304,7 @@ function StageCard({ stage, index }) {
         display: 'flex',
         alignItems: 'center',
         gap: '2rem',
-        marginBottom: '2rem',
+        marginBottom: '2.5rem',
         flexDirection: isLeft ? 'row' : 'row-reverse',
         position: 'relative',
         zIndex: 1,
@@ -322,7 +320,7 @@ function StageCard({ stage, index }) {
             backgroundColor: 'var(--color-white)',
             border: '2px solid var(--color-border)',
             borderRadius: '10px',
-            padding: '22px 24px',
+            padding: '24px 26px',
             boxShadow: '0 4px 0 var(--color-border), var(--shadow-sm)',
             position: 'relative',
             transition: 'box-shadow 0.2s ease, transform 0.2s ease',
@@ -342,7 +340,7 @@ function StageCard({ stage, index }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '10px',
+            marginBottom: '12px',
           }}>
             <div style={{
               display: 'inline-flex',
@@ -351,12 +349,12 @@ function StageCard({ stage, index }) {
               backgroundColor: color,
               color: '#fff',
               fontFamily: 'var(--font-pixel)',
-              fontSize: '0.42rem',
-              padding: '3px 10px',
+              fontSize: '0.72rem',
+              padding: '4px 12px',
               borderRadius: '4px',
               letterSpacing: '0.04em',
             }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.42rem' }}>{num}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem' }}>{num}</span>
               {badge.toUpperCase()}
             </div>
 
@@ -384,36 +382,37 @@ function StageCard({ stage, index }) {
 
           <h3 style={{
             fontFamily: 'var(--font-display)',
-            fontSize: '0.65rem',
+            fontSize: '0.85rem',
             fontWeight: 700,
             letterSpacing: '0',
             color: 'var(--color-charcoal)',
-            marginBottom: '8px',
+            marginBottom: '10px',
+            lineHeight: 1.4,
           }}>
             {title}
           </h3>
 
           <p style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.52rem',
+            fontSize: '0.78rem',
             color: 'var(--color-muted)',
-            lineHeight: 2,
+            lineHeight: 1.8,
           }}>
             {desc}
           </p>
 
           {/* Module pills for stage 03 */}
           {modules && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
               {modules.map((m) => (
                 <span key={m} style={{
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '0.42rem',
+                  fontSize: '0.72rem',
                   color: '#1A5E8A',
                   backgroundColor: '#EBF5FB',
                   border: '1px solid #AED6F1',
                   borderRadius: '4px',
-                  padding: '3px 8px',
+                  padding: '4px 10px',
                   letterSpacing: '0.04em',
                 }}>
                   {m}
@@ -446,7 +445,7 @@ function StageCard({ stage, index }) {
       >
         <span style={{
           fontFamily: 'var(--font-pixel)',
-          fontSize: '0.7rem',
+          fontSize: '0.82rem',
           color: 'white',
           lineHeight: 1,
           letterSpacing: '0.02em',

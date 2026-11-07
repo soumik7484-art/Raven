@@ -9,17 +9,17 @@ const PILLARS = [
   {
     icon: '🛡️',
     title: 'MISSION ZERO PHISH',
-    desc: 'Unmask counterfeit web portals, deceptive credential harvesters, and punycode masquerades before users share critical data.',
+    desc: 'Unmask counterfeit web portals, deceptive credential harvesters, and punycode masquerades before users share sensitive credentials.',
   },
   {
     icon: '⚡',
     title: 'EXPLAINABLE INTELLIGENCE',
-    desc: 'No black-box mystery scores. HackMatrix provides concrete cryptographic indicators, TLS cert signatures, and raw heuristic signals.',
+    desc: 'No black-box mystery scores. HackMatrix provides clear cryptographic indicators, TLS certificate signatures, and raw heuristic signals.',
   },
   {
     icon: '🌐',
     title: 'COMMUNITY DEFENSE GRID',
-    desc: 'Empowering security researchers, students, and curious web explorers with accessible, game-grade cybersecurity inspection tooling.',
+    desc: 'Empowering security researchers, students, and curious web explorers with accessible, high-grade cybersecurity investigation tools.',
   },
 ]
 
@@ -63,10 +63,9 @@ export default function About() {
               alignItems: 'center',
               gap: '8px',
               fontFamily: 'var(--font-pixel)',
-              fontSize: '0.45rem',
+              fontSize: '0.72rem',
               color: '#2a2a2a',
               letterSpacing: '0.1em',
-              wordSpacing: '-3px',
               marginBottom: '1.25rem',
               padding: '6px 16px',
               backgroundColor: '#fff',
@@ -85,7 +84,6 @@ export default function About() {
               fontSize: 'clamp(1.1rem, 2.8vw, 1.8rem)',
               fontWeight: 400,
               letterSpacing: '0.04em',
-              wordSpacing: '-4px',
               lineHeight: 1.4,
               color: '#111',
               marginBottom: '1rem',
@@ -98,10 +96,10 @@ export default function About() {
           <p
             style={{
               fontFamily: 'var(--font-body)',
-              fontSize: '0.55rem',
-              lineHeight: 2,
+              fontSize: '0.8rem',
+              lineHeight: 1.8,
               color: '#555',
-              maxWidth: '580px',
+              maxWidth: '640px',
               margin: '0 auto',
             }}
           >
@@ -123,7 +121,7 @@ export default function About() {
             <div
               key={p.title}
               style={{
-                padding: '20px',
+                padding: '22px',
                 backgroundColor: '#ffffff',
                 border: '2px solid #2a2a2a',
                 borderRadius: '4px',
@@ -154,11 +152,11 @@ export default function About() {
               <h3
                 style={{
                   fontFamily: 'var(--font-pixel)',
-                  fontSize: '0.52rem',
+                  fontSize: '0.8rem',
                   color: '#111',
                   margin: 0,
                   letterSpacing: '0.04em',
-                  wordSpacing: '-3px',
+                  lineHeight: 1.4,
                 }}
               >
                 {p.title}
@@ -167,8 +165,8 @@ export default function About() {
               <p
                 style={{
                   fontFamily: 'var(--font-body)',
-                  fontSize: '0.45rem',
-                  lineHeight: 1.9,
+                  fontSize: '0.75rem',
+                  lineHeight: 1.8,
                   color: '#555',
                   margin: 0,
                 }}
@@ -198,7 +196,7 @@ export default function About() {
             <div
               style={{
                 fontFamily: 'var(--font-pixel)',
-                fontSize: '0.38rem',
+                fontSize: '0.7rem',
                 color: '#3a7a3a',
                 letterSpacing: '0.08em',
                 marginBottom: '6px',
@@ -209,7 +207,7 @@ export default function About() {
             <div
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.52rem',
+                fontSize: '0.82rem',
                 fontWeight: 700,
                 color: '#111',
               }}
@@ -219,9 +217,10 @@ export default function About() {
             <div
               style={{
                 fontFamily: 'var(--font-body)',
-                fontSize: '0.45rem',
+                fontSize: '0.78rem',
+                lineHeight: 1.6,
                 color: '#666',
-                marginTop: '4px',
+                marginTop: '6px',
               }}
             >
               Powered by advanced neural heuristics, distributed threat crawlers, and community intelligence.
@@ -232,7 +231,7 @@ export default function About() {
             href="#scanner"
             style={{
               padding: '10px 18px',
-              fontSize: '0.42rem',
+              fontSize: '0.75rem',
               fontFamily: 'var(--font-pixel)',
               color: '#ffffff',
               backgroundColor: '#3a7a3a',
@@ -244,7 +243,6 @@ export default function About() {
               alignItems: 'center',
               gap: '6px',
               letterSpacing: '0.06em',
-              wordSpacing: '-2px',
               whiteSpace: 'nowrap',
               transition: 'transform 0.1s ease, box-shadow 0.1s ease',
             }}
