@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react'
 import CyberHeroAnimation from './CyberHeroAnimation'
 
 /**
@@ -7,13 +8,27 @@ import CyberHeroAnimation from './CyberHeroAnimation'
  *   Left  — headline, description, CTAs, trust badges
  *   Right — animated Minecraft-inspired floating island scene
  *
- * The island floats, clouds drift, threat arrows approach and bounce off the
- * central pixel shield, then fade. All animation is CSS-driven (keyframes),
- * so it's zero-JS-runtime and GPU-composited.
- *
  * No opacity:0 initial states on text content — always readable.
  */
 export default function Hero() {
+  const videoRef = useRef(null)
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.muted = true
+    video.defaultMuted = true
+    video.volume = 0
+    video.setAttribute('muted', '')
+    video.setAttribute('playsinline', '')
+    video.setAttribute('webkit-playsinline', '')
+    video.onvolumechange = () => {
+      video.muted = true
+      video.volume = 0
+    }
+    const p = video.play()
+    if (p !== undefined) p.catch(() => {})
+  }, [])
 
   return (
     <section
@@ -25,13 +40,18 @@ export default function Hero() {
         borderBottom: '1px solid var(--color-border-light)',
       }}
     >
-      {/* ── 1. Video background (bottom layer) ── */}
+      {/* ── 1. Video background (bottom layer, strictly muted with 0 sound) ── */}
       <video
+        ref={videoRef}
         autoPlay
         muted
         loop
         playsInline
         aria-hidden="true"
+        onVolumeChange={(e) => {
+          e.currentTarget.muted = true
+          e.currentTarget.volume = 0
+        }}
         style={{
           position: 'absolute',
           inset: 0,

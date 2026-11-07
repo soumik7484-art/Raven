@@ -16,12 +16,17 @@ export default function CinematicIntro({ onEnter }) {
 
     video.muted = true
     video.defaultMuted = true
+    video.volume = 0
     video.playsInline = true
     video.loop = true
     video.setAttribute('muted', '')
     video.setAttribute('playsinline', '')
     video.setAttribute('webkit-playsinline', '')
     video.setAttribute('loop', '')
+    video.onvolumechange = () => {
+      video.muted = true
+      video.volume = 0
+    }
 
     const playPromise = video.play()
     if (playPromise !== undefined) {
