@@ -79,7 +79,7 @@ export async function post(endpoint, body) {
 }
 
 /**
- * Safe wrapper: returns { data, error, unavailable } 
+ * Safe wrapper: returns { data, error, unavailable }
  * Use this in components to easily handle all states.
  */
 export async function safeRequest(requestFn) {

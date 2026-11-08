@@ -1,26 +1,10 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
+import { extractIncidents } from '../utils/incidentNormalizer'
 
 /**
- * ScanResult — Raven Minecraft 3D Character Notification System
- *
- * Requirements:
- * 1. Character and result mapping:
- *    - Safe / Clean: Happy character celebrating pose (/assets/character-safe.png)
- *    - Suspicious: Serious character raised stop-hand pose (/assets/character-suspicious.png)
- *    - Malicious: Warrior character diamond sword & shield pose (/assets/character-malicious.png)
- *    - Loading / Standby: Serious character with active scanning radar
- * 2. 3D message cloud:
- *    - Thick beveled 3D borders, soft realistic depth and shadows, glossy 3D finish
- *    - Minecraft blocky edges, matching palette (green/gold, yellow/orange, red/dark red)
- *    - Speech bubble tail pointing towards the character
- *    - 3D emblem badge on top border
- * 3. Dynamic cloud sizing:
- *    - Automatically expands/contracts according to real scan result content
- *    - Multi-line support, auto wrap, zero cutoffs
- *    - Mobile responsive: stacks vertically on small screens
- * 4. Real backend data display:
- *    - Classification, score, detection status, threat type, confidence, evidence, explanation, recommendation
- * 5. Honest handling of disconnected or error states (no fake scores).
+ * ScanResult — Companion Hero & Security Dossier
+ * Combines the side-by-side Minecraft Hero character placement with
+ * the clean, organised risk intelligence report.
  */
 
 const THEMES = {
@@ -28,314 +12,213 @@ const THEMES = {
     type: 'safe',
     label: 'SAFE WEBSITE',
     badgeLabel: 'VERIFIED SAFE',
-    subtext: 'OPTIMAL SECURITY POSTURE VERIFIED',
     characterSrc: '/assets/character-safe.png',
     characterAlt: 'Celebrating Minecraft Hero — URL Verified Safe',
     badgeSrc: '/assets/badge-safe.png',
     badgeAlt: 'Shield Checkmark Badge',
+    heroRole: 'TRUSTED HERO',
     themeColor: '#2b772b',
-    goldAccent: '#e5a519',
     borderColor: '#1c551c',
     bevelLight: '#78cf78',
     bevelDark: '#123812',
     shadowColor: '#0a220a',
     bgGradient: 'linear-gradient(180deg, #ffffff 0%, #f6fcf4 18%, #edf8ec 100%)',
     textColor: '#1a331a',
-    metaBg: '#e2f3df',
-    metaBorder: '#98d494',
     tailFill: '#edf8ec',
     tailBorder: '#1c551c',
-    scorePillBg: '#2b772b',
-    scorePillText: '#ffffff',
-    scorePillBorder: '#1c551c',
-    fallbackExplanation:
-      'This URL appears safe. No known threats, deceptive signatures, or malicious payloads were detected by the available security checks.',
-    fallbackAction: 'Safe to proceed with normal browsing awareness.',
   },
   suspicious: {
     type: 'suspicious',
     label: 'SUSPICIOUS URL',
     badgeLabel: 'CAUTION REQUIRED',
-    subtext: 'POTENTIAL RISK SIGNALS IDENTIFIED',
     characterSrc: '/assets/character-suspicious.png',
-    characterAlt: 'Serious Minecraft Hero with Stop-Hand — Suspicious URL',
+    characterAlt: 'Vigilant Minecraft Hero with Stop-Hand',
     badgeSrc: '/assets/badge-suspicious.png',
     badgeAlt: 'Warning Triangle Badge',
+    heroRole: 'VIGILANT SENTINEL',
     themeColor: '#c97e00',
-    goldAccent: '#ffa91f',
     borderColor: '#824c00',
     bevelLight: '#ffd65c',
     bevelDark: '#543000',
     shadowColor: '#331d00',
     bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
     textColor: '#3b2300',
-    metaBg: '#fbeef0',
-    metaBorder: '#f0c775',
     tailFill: '#fdf5dd',
     tailBorder: '#824c00',
-    scorePillBg: '#c97e00',
-    scorePillText: '#ffffff',
-    scorePillBorder: '#824c00',
-    fallbackExplanation:
-      'Warning! This URL exhibits suspicious indicators or unusual domain characteristics. Review verification signals and SSL credentials before proceeding.',
-    fallbackAction: 'Exercise caution. Do not enter passwords or personal details without independent verification.',
   },
   malicious: {
     type: 'malicious',
     label: 'MALICIOUS THREAT',
     badgeLabel: 'CRITICAL DANGER',
-    subtext: 'KNOWN ATTACK VECTOR OR PHISHING DETECTED',
     characterSrc: '/assets/character-malicious.png',
-    characterAlt: 'Warrior Hero with Diamond Sword & Shield — Malicious URL Blocked',
+    characterAlt: 'Warrior Hero with Diamond Sword & Shield',
     badgeSrc: '/assets/badge-malicious.png',
     badgeAlt: 'Skull Danger Badge',
+    heroRole: 'DEFENSIVE WARRIOR',
     themeColor: '#c81e1e',
-    goldAccent: '#ff4d4f',
     borderColor: '#780e0e',
     bevelLight: '#ff7070',
     bevelDark: '#4a0505',
     shadowColor: '#2b0000',
     bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fff5f5 18%, #fbe7e7 100%)',
     textColor: '#420808',
-    metaBg: '#fbdada',
-    metaBorder: '#f08d8d',
     tailFill: '#fbe7e7',
     tailBorder: '#780e0e',
-    scorePillBg: '#c81e1e',
-    scorePillText: '#ffffff',
-    scorePillBorder: '#780e0e',
-    fallbackExplanation:
-      'Danger! This URL has been identified as malicious or deceptive. High probability of credential theft, fraudulent redirection, or malware distribution.',
-    fallbackAction: 'DO NOT VISIT OR INTERACT. Close this tab immediately and do not submit any credentials or downloads.',
   },
   loading: {
     type: 'loading',
     label: 'SCANNING IN PROGRESS…',
     badgeLabel: 'ACTIVE RADAR',
-    subtext: 'ANALYZING THREAT FEEDS & HEURISTICS',
-    characterSrc: '/assets/character-suspicious.png',
-    characterAlt: 'Guardian Warrior Actively Scanning Target',
-    badgeSrc: '/assets/badge-suspicious.png',
+    characterSrc: '/assets/character-loading.png',
+    characterAlt: 'Cyber Sentinel actively scanning target with neural terminal',
+    badgeSrc: '/assets/badge-safe.png',
     badgeAlt: 'Radar Beacon',
+    heroRole: 'ACTIVE RADAR SCAN',
     themeColor: '#2b772b',
-    goldAccent: '#78cf78',
     borderColor: '#1c551c',
     bevelLight: '#78cf78',
     bevelDark: '#123812',
     shadowColor: '#0a220a',
     bgGradient: 'linear-gradient(180deg, #ffffff 0%, #f6fcf4 18%, #edf8ec 100%)',
     textColor: '#1a331a',
-    metaBg: '#e2f3df',
-    metaBorder: '#98d494',
     tailFill: '#edf8ec',
     tailBorder: '#1c551c',
-    scorePillBg: '#2b772b',
-    scorePillText: '#ffffff',
-    scorePillBorder: '#1c551c',
-    fallbackExplanation: 'Executing multi-module telemetry investigation across active threat feeds, TLS certificates, and domain reputational registers…',
-    fallbackAction: 'Please stand by while security findings are aggregated.',
   },
 }
 
-/**
- * Normalizes backend response into standard UI telemetry schema
- */
-function parseScanPayload(data, rawClassificationOverride = null) {
-  if (!data && !rawClassificationOverride) return null
-
-  const d = data || {}
-  
-  // 1. Classification
-  let classification = rawClassificationOverride
-  if (!classification) {
-    const rawCat = String(
-      d.classification ||
-      d.risk_category ||
-      d.risk_level ||
-      d.status ||
-      d.verdict ||
-      d.threat_level ||
-      ''
-    ).toLowerCase()
-
-    if (
-      rawCat.includes('malicious') ||
-      rawCat.includes('danger') ||
-      rawCat.includes('phishing') ||
-      rawCat.includes('critical') ||
-      rawCat.includes('red') ||
-      rawCat.includes('malware')
-    ) {
-      classification = 'malicious'
-    } else if (
-      rawCat.includes('suspicious') ||
-      rawCat.includes('warning') ||
-      rawCat.includes('attention') ||
-      rawCat.includes('moderate') ||
-      rawCat.includes('yellow') ||
-      rawCat.includes('medium')
-    ) {
-      classification = 'suspicious'
-    } else if (
-      rawCat.includes('safe') ||
-      rawCat.includes('clean') ||
-      rawCat.includes('healthy') ||
-      rawCat.includes('low') ||
-      rawCat.includes('green')
-    ) {
-      classification = 'safe'
-    } else if (typeof d.score === 'number' || typeof d.health_score === 'number') {
-      const s = d.health_score ?? d.score
-      if (s >= 75) classification = 'safe'
-      else if (s >= 40) classification = 'suspicious'
-      else classification = 'malicious'
-    } else if (typeof d.risk_score === 'number') {
-      const rs = d.risk_score
-      if (rs <= 25) classification = 'safe'
-      else if (rs <= 60) classification = 'suspicious'
-      else classification = 'malicious'
-    } else {
-      classification = 'suspicious'
-    }
-  }
-
-  // 2. Score
-  let score = d.health_score ?? d.score ?? d.risk_score
-  if (score === undefined || score === null) {
-    score = classification === 'safe' ? 96 : classification === 'suspicious' ? 58 : 14
-  } else {
-    score = Math.round(Number(score))
-  }
-
-  // 3. Status & Threat Type
-  const detectionStatus =
-    d.detection_status ||
-    d.status_label ||
-    (classification === 'safe'
-      ? 'Verified Clean'
-      : classification === 'suspicious'
-        ? 'Suspicious Signal'
-        : 'Confirmed Threat')
-
-  const threatType =
-    d.threat_type ||
-    d.threat ||
-    d.category ||
-    (classification === 'safe'
-      ? 'None Detected'
-      : classification === 'suspicious'
-        ? 'Deceptive Pattern / Heuristic Flag'
-        : 'Phishing / Malicious Payload')
-
-  // 4. Confidence
-  const confidence =
-    d.confidence ||
-    (d.confidence_score ? `${Math.round(d.confidence_score * 100)}%` : 'High Confidence')
-
-  // 5. Explanation & Recommendation
-  const explanation =
-    d.explanation ||
-    d.summary ||
-    d.description ||
-    d.ai_summary?.overview ||
-    THEMES[classification]?.fallbackExplanation
-
-  const recommendedAction =
-    d.remediation ||
-    d.recommended_action ||
-    d.action ||
-    THEMES[classification]?.fallbackAction
-
-  // 6. Evidence points
-  let evidence = []
-  if (Array.isArray(d.evidence)) {
-    evidence = d.evidence
-  } else if (Array.isArray(d.findings)) {
-    evidence = d.findings.map(f => (typeof f === 'string' ? f : f.title || f.description || JSON.stringify(f)))
-  } else if (Array.isArray(d.checks)) {
-    evidence = d.checks.map(c => (typeof c === 'string' ? c : c.name || JSON.stringify(c)))
-  } else {
-    if (classification === 'safe') {
-      evidence = [
-        'Domain TLS certificate is valid and issued by a trusted CA',
-        'Zero listings across known threat intelligence & phishing feeds',
-        'Legitimate domain registration history with clean DNS telemetry',
-        'Static heuristic analysis revealed no obfuscated payload links'
-      ]
-    } else if (classification === 'suspicious') {
-      evidence = [
-        'Uncommon or high-risk top-level domain extension detected',
-        'Recent domain registration age with anomalous DNS records',
-        'Potential keyword spoofing targeting recognized brand infrastructure',
-        'Redirect chains detected during automated link pre-fetching'
-      ]
-    } else {
-      evidence = [
-        'Confirmed active entry on global malware & phishing threat blacklists',
-        'High-confidence brand impersonation or credential harvesting form',
-        'Deceptive URL punycode / typosquatting match detected',
-        'Host reputation matches verified malicious campaign telemetry'
-      ]
-    }
-  }
-
-  return {
-    classification,
-    score,
-    detectionStatus,
-    threatType,
-    confidence,
-    explanation,
-    recommendedAction,
-    evidence,
-    raw: data,
-  }
+// Sample preview payloads for testing all warrior reactions
+const PREVIEW_PAYLOADS = {
+  safe: {
+    submitted_url: 'https://wikipedia.org/',
+    scan_id: '03f2dd01-8b29-4591-9c8e',
+    timestamp: new Date().toISOString(),
+    final_risk_report: {
+      overall_risk_score: 5,
+      risk_category: 'Low Risk',
+      explanation: 'This website appears safe and trustworthy to browse under standard security practices.',
+    },
+    threat_intelligence: {
+      is_threat_confirmed: false,
+      providers_checked: 3,
+      providers_malicious_count: 0,
+    },
+    domain_intelligence: {
+      hostname: 'wikipedia.org',
+      ssl_report: { is_valid: true, issuer: 'trusted authority' },
+      rdap_report: { status: 'success', domain_age_days: 25 * 365 },
+    },
+    website_assessment: {
+      is_accessible: false,
+      dom_inspection_available: false,
+      inspection_state: 'blocked',
+      status_code: 403,
+      fetch_error: 'HTTP 403 Access Denied / Blocked',
+    },
+  },
+  suspicious: {
+    submitted_url: 'https://verify-login-update.xyz/',
+    scan_id: '5e7a912c-914b-4a2e-8a19',
+    timestamp: new Date().toISOString(),
+    final_risk_report: {
+      overall_risk_score: 48,
+      risk_category: 'Moderate Risk',
+      explanation: 'Moderate security warnings identified. Exercise caution before interacting with this page.',
+    },
+    threat_intelligence: {
+      is_threat_confirmed: false,
+      is_suspicious: true,
+      threat_tier: 'credible_suspicious',
+      providers_checked: 4,
+      providers_malicious_count: 0,
+    },
+    domain_intelligence: {
+      hostname: 'verify-login-update.xyz',
+      ssl_report: { is_valid: true, days_until_expiration: 12 },
+      rdap_report: { status: 'success', domain_age_days: 14 },
+      risk_indicators: ['Newly registered domain (.xyz)', 'Potential brand lookalike'],
+    },
+    website_assessment: {
+      is_accessible: true,
+      suspicious_redirect: true,
+      form_analysis: { has_external_form_action: true, password_forms_count: 0 },
+    },
+  },
+  malicious: {
+    submitted_url: 'http://paypal-account-security-update.com/login',
+    scan_id: '9b3c41ef-0012-4f81-a953',
+    timestamp: new Date().toISOString(),
+    final_risk_report: {
+      overall_risk_score: 88,
+      risk_category: 'Critical Risk',
+      explanation: 'Severe security risk detected. Access should be blocked to prevent potential compromise.',
+    },
+    threat_intelligence: {
+      is_threat_confirmed: true,
+      threat_types: ['phishing', 'malware'],
+      providers_checked: 4,
+      providers_malicious_count: 2,
+      provider_results: {
+        google_safe_browsing: { is_malicious: true },
+        virustotal: { is_malicious: true },
+      },
+    },
+    domain_intelligence: {
+      hostname: 'paypal-account-security-update.com',
+      ssl_report: { is_valid: false, tls_outcome: 'HTTPS_NOT_USED' },
+      rdap_report: { status: 'success', domain_age_days: 3 },
+      risk_indicators: ['Confirmed deceptive PayPal brand spoofing address'],
+    },
+    website_assessment: {
+      is_accessible: true,
+      brand_impersonation: { is_impersonation_detected: true, target_brand: 'PayPal' },
+      form_analysis: { has_external_credential_action: true, password_forms_count: 1 },
+    },
+  },
 }
 
 export default function ScanResult({ state, data, error, url, onRetry, onReset }) {
-  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
-  // Dev preview override state to easily preview Safe / Suspicious / Malicious states
-  const [devPreviewType, setDevPreviewType] = useState(null)
+  const [previewOverride, setPreviewOverride] = useState(null)
+  const [showRawJson, setShowRawJson] = useState(false)
 
-  // Determine active view mode
-  const isDevPreview = Boolean(devPreviewType)
-  const effectiveState = isDevPreview ? 'success' : state
+  const effectiveData = previewOverride && previewOverride !== 'loading' ? PREVIEW_PAYLOADS[previewOverride] : data
+  const effectiveState = previewOverride ? (previewOverride === 'loading' ? 'loading' : 'success') : state
 
-  // Parse result data (Hooks must be called unconditionally)
-  const parsedData = useMemo(() => {
-    if (isDevPreview) {
-      return parseScanPayload(null, devPreviewType)
+  // Parse result classification to select matching theme (Safe, Suspicious, Malicious, Loading)
+  const themeKey = useMemo(() => {
+    if (effectiveState === 'loading') return 'loading'
+    if (!effectiveData) return 'safe'
+
+    const d = effectiveData
+    const finalRisk = d.final_risk_report || {}
+    const ti = d.threat_intelligence || {}
+    const rawCat = String(finalRisk.risk_category || d.risk_category || d.classification || '').toLowerCase()
+    const riskScore = typeof finalRisk.overall_risk_score === 'number' ? finalRisk.overall_risk_score : (typeof d.risk_score === 'number' ? d.risk_score : 0)
+
+    if (ti.is_threat_confirmed || rawCat.includes('critical') || rawCat.includes('malicious') || riskScore >= 75) {
+      return 'malicious'
     }
-    if (effectiveState === 'success') {
-      return parseScanPayload(data)
+    if (rawCat.includes('high') || rawCat.includes('mod') || rawCat.includes('suspicious') || riskScore >= 25) {
+      return 'suspicious'
     }
-    return null
-  }, [effectiveState, data, isDevPreview, devPreviewType])
+    return 'safe'
+  }, [effectiveState, effectiveData])
 
-  if (state === 'idle' && !devPreviewType) return null
+  // Early return ONLY after all hooks are evaluated to maintain constant hook count
+  if (state === 'idle' && !previewOverride) return null
 
-  const themeKey =
-    effectiveState === 'loading'
-      ? 'loading'
-      : effectiveState === 'success'
-        ? parsedData?.classification || 'safe'
-        : 'suspicious'
-
-  const theme = THEMES[themeKey] || THEMES.suspicious
+  const theme = THEMES[themeKey] || THEMES.safe
 
   return (
     <div
       role="region"
       aria-live="polite"
-      aria-label="URL Security Investigation Result"
+      aria-label="Scan results"
       style={{
         marginTop: '28px',
-        animation: 'cloudPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both',
-        position: 'relative',
-        zIndex: 5,
+        animation: 'cloudPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both',
+        width: '100%',
       }}
     >
-      {/* ── Main Dynamic Responsive Flex Container ── */}
       <div
         className="scan-cloud-layout"
         style={{
@@ -345,7 +228,7 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
           width: '100%',
         }}
       >
-        {/* ── 1. Character Visual Column ── */}
+        {/* ── 1. Character Visual Column (Placed on the LEFT side) ── */}
         <div
           className="scan-character-col"
           style={{
@@ -354,18 +237,18 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            position: 'relative',
+            position: 'sticky',
+            top: '84px',
           }}
         >
-          {/* Character illustration container */}
+          {/* Animated 3D Character Pose */}
           <div
             style={{
               position: 'relative',
               width: '100%',
               display: 'flex',
               justifyContent: 'center',
-              animation: effectiveState === 'loading' ? 'characterBob 2s ease-in-out infinite' : 'none',
-              filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.22))',
+              animation: 'characterBob 4s ease-in-out infinite',
             }}
           >
             <img
@@ -373,14 +256,15 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
               alt={theme.characterAlt}
               style={{
                 width: '100%',
-                maxHeight: '310px',
+                maxHeight: '300px',
                 objectFit: 'contain',
+                filter: 'drop-shadow(0 10px 18px rgba(0,0,0,0.22))',
                 display: 'block',
               }}
             />
           </div>
 
-          {/* 3D Ground shadow beneath character */}
+          {/* 3D Ground Shadow */}
           <div
             aria-hidden="true"
             style={{
@@ -393,87 +277,55 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             }}
           />
 
-          {/* Character Name / Subtitle */}
+          {/* Character Role Badge */}
           <div
             style={{
-              marginTop: '8px',
+              marginTop: '10px',
               fontFamily: 'var(--font-pixel)',
-              fontSize: '0.62rem',
-              color: '#333333',
+              fontSize: '0.64rem',
+              color: '#222',
               letterSpacing: '0.08em',
               textAlign: 'center',
               backgroundColor: '#ffffff',
               border: '2px solid #2a2a2a',
               borderRadius: '3px',
-              padding: '4px 8px',
+              padding: '5px 10px',
               boxShadow: '2px 2px 0 #2a2a2a',
               whiteSpace: 'nowrap',
             }}
           >
-            {effectiveState === 'loading'
-              ? 'SCANNING...'
-              : themeKey === 'safe'
-                ? 'TRUSTED HERO'
-                : themeKey === 'suspicious'
-                  ? 'VIGILANT SENTINEL'
-                  : 'DEFENSIVE WARRIOR'}
+            {effectiveState === 'loading' ? 'SCANNING...' : theme.heroRole}
           </div>
         </div>
 
-        {/* ── 2. 3D Dynamic Message Cloud ── */}
+        {/* ── 2. Speech Bubble Container (Placed on the RIGHT side) ── */}
         <div
           className="scan-cloud-bubble"
           style={{
             flex: 1,
             minWidth: 0,
             position: 'relative',
-            background: theme.bgGradient,
-            border: `4px solid ${theme.borderColor}`,
-            borderRadius: '8px',
+            backgroundColor: '#ffffff',
+            border: `3px solid ${theme.borderColor}`,
+            borderRadius: '6px',
             boxShadow: `
-              0 8px 0 ${theme.shadowColor},
-              inset 3px 3px 0 ${theme.bevelLight},
-              inset -3px -3px 0 ${theme.bevelDark},
-              0 14px 28px rgba(0,0,0,0.15)
+              0 6px 0 ${theme.shadowColor},
+              inset 2px 2px 0 ${theme.bevelLight},
+              inset -2px -2px 0 ${theme.bevelDark},
+              0 14px 28px rgba(0,0,0,0.12)
             `,
-            padding: '30px 26px 24px',
-            color: theme.textColor,
+            color: '#1a1a1a',
             transition: 'all 0.25s ease',
           }}
         >
-          {/* Top Emblem Badge (Shield / Triangle / Skull) */}
-          <div
-            className="cloud-top-badge"
-            style={{
-              position: 'absolute',
-              top: '-32px',
-              left: '26px',
-              height: '56px',
-              zIndex: 10,
-              filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))',
-              pointerEvents: 'none',
-            }}
-          >
-            <img
-              src={theme.badgeSrc}
-              alt={theme.badgeAlt}
-              style={{
-                height: '100%',
-                width: 'auto',
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
-          </div>
-
-          {/* Desktop Left Pointer Tail (points towards character) */}
+          {/* Desktop Left Pointer Tail (points directly to the character on the left) */}
           <div
             className="cloud-tail-desktop"
             aria-hidden="true"
             style={{
               position: 'absolute',
               left: '-26px',
-              top: '64px',
+              top: '56px',
               width: '28px',
               height: '44px',
               pointerEvents: 'none',
@@ -481,17 +333,14 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             }}
           >
             <svg width="28" height="44" viewBox="0 0 28 44" fill="none">
-              {/* Solid 3D Base */}
               <polygon points="28,0 0,22 28,44" fill={theme.borderColor} />
-              {/* Inner fill matching cloud background */}
               <polygon points="28,4 5,22 28,40" fill={theme.tailFill} />
-              {/* Bevel highlights */}
-              <line x1="28" y1="4" x2="5" y2="22" stroke={theme.bevelLight} strokeWidth="3.5" strokeLinecap="square" />
-              <line x1="5" y1="22" x2="28" y2="40" stroke={theme.bevelDark} strokeWidth="3.5" strokeLinecap="square" />
+              <line x1="28" y1="4" x2="5" y2="22" stroke={theme.bevelLight} strokeWidth="3" strokeLinecap="square" />
+              <line x1="5" y1="22" x2="28" y2="40" stroke={theme.bevelDark} strokeWidth="3" strokeLinecap="square" />
             </svg>
           </div>
 
-          {/* Mobile Top Pointer Tail (points upwards towards character) */}
+          {/* Mobile Top Pointer Tail (points up to the character on small screens) */}
           <div
             className="cloud-tail-mobile"
             aria-hidden="true"
@@ -509,52 +358,26 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             <svg width="44" height="26" viewBox="0 0 44 26" fill="none">
               <polygon points="0,26 22,0 44,26" fill={theme.borderColor} />
               <polygon points="4,26 22,5 40,26" fill={theme.tailFill} />
-              <line x1="4" y1="26" x2="22" y2="5" stroke={theme.bevelLight} strokeWidth="3.5" strokeLinecap="square" />
-              <line x1="22" y1="5" x2="40" y2="26" stroke={theme.bevelDark} strokeWidth="3.5" strokeLinecap="square" />
+              <line x1="4" y1="26" x2="22" y2="5" stroke={theme.bevelLight} strokeWidth="3" strokeLinecap="square" />
+              <line x1="22" y1="5" x2="40" y2="26" stroke={theme.bevelDark} strokeWidth="3" strokeLinecap="square" />
             </svg>
           </div>
 
-          {/* ── Cloud Content ── */}
-          {effectiveState === 'loading' && <LoadingCloudContent url={url} theme={theme} />}
-
-          {effectiveState === 'unavailable' && (
-            <UnavailableCloudContent
+          {/* ── State Views inside the Bubble ── */}
+          {effectiveState === 'loading' && <LoadingContent url={url} theme={theme} />}
+          {effectiveState === 'unavailable' && <UnavailableContent onRetry={onRetry} onReset={onReset} theme={theme} />}
+          {effectiveState === 'error' && <ErrorContent error={error} onRetry={onRetry} onReset={onReset} theme={theme} />}
+          {effectiveState === 'success' && (
+            <CleanDossierContent
+              data={effectiveData}
               url={url}
               theme={theme}
-              onRetry={onRetry}
+              previewOverride={previewOverride}
+              onSelectPreview={setPreviewOverride}
+              showRawJson={showRawJson}
+              onToggleRawJson={() => setShowRawJson(!showRawJson)}
               onReset={() => {
-                setDevPreviewType(null)
-                if (onReset) onReset()
-              }}
-              onDevPreview={setDevPreviewType}
-            />
-          )}
-
-          {effectiveState === 'error' && (
-            <ErrorCloudContent
-              error={error}
-              url={url}
-              theme={theme}
-              onRetry={onRetry}
-              onReset={() => {
-                setDevPreviewType(null)
-                if (onReset) onReset()
-              }}
-              onDevPreview={setDevPreviewType}
-            />
-          )}
-
-          {effectiveState === 'success' && parsedData && (
-            <SuccessCloudContent
-              data={parsedData}
-              url={url}
-              theme={theme}
-              isDevPreview={isDevPreview}
-              showTechnicalDetails={showTechnicalDetails}
-              onToggleTechnicalDetails={() => setShowTechnicalDetails(!showTechnicalDetails)}
-              onDevPreview={setDevPreviewType}
-              onReset={() => {
-                setDevPreviewType(null)
+                setPreviewOverride(null)
                 if (onReset) onReset()
               }}
             />
@@ -562,12 +385,11 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
         </div>
       </div>
 
-      {/* Responsive Stacking & Animation Styles */}
       <style>{`
         @keyframes cloudPopIn {
           0% {
             opacity: 0;
-            transform: scale(0.96) translateY(10px);
+            transform: scale(0.97) translateY(8px);
           }
           100% {
             opacity: 1;
@@ -582,13 +404,7 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             transform: translateY(-8px);
           }
         }
-        @keyframes pulseGlow {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-
-        /* Responsive Layout: Desktop vs Mobile */
-        @media (min-width: 768px) {
+        @media (min-width: 820px) {
           .cloud-tail-mobile {
             display: none !important;
           }
@@ -596,7 +412,7 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             display: block !important;
           }
         }
-        @media (max-width: 767px) {
+        @media (max-width: 819px) {
           .scan-cloud-layout {
             flex-direction: column !important;
             align-items: center !important;
@@ -604,10 +420,7 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
           }
           .scan-character-col {
             width: 170px !important;
-          }
-          .scan-cloud-bubble {
-            width: 100% !important;
-            padding: 28px 18px 20px !important;
+            position: static !important;
           }
           .cloud-tail-desktop {
             display: none !important;
@@ -615,10 +428,8 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
           .cloud-tail-mobile {
             display: block !important;
           }
-          .cloud-top-badge {
-            left: 14px !important;
-            height: 48px !important;
-            top: -28px !important;
+          .metrics-tiles-grid {
+            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)) !important;
           }
         }
       `}</style>
@@ -626,41 +437,326 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
   )
 }
 
-/* ─────────────────────────────────────────────────────────
-   1. Success State View
-   ───────────────────────────────────────────────────────── */
-function SuccessCloudContent({
+/* ─────────────────────────────────────────────
+   Clean Dossier Content (Image 4 Design inside the Bubble)
+   ───────────────────────────────────────────── */
+function CleanDossierContent({
   data,
   url,
   theme,
-  isDevPreview,
-  showTechnicalDetails,
-  onToggleTechnicalDetails,
-  onDevPreview,
+  previewOverride,
+  onSelectPreview,
+  showRawJson,
+  onToggleRawJson,
   onReset,
 }) {
+  const submittedUrl = url || data?.submitted_url || data?.normalized_url || ''
+
+  let targetHostname = 'UNKNOWN TARGET'
+  try {
+    targetHostname = data?.domain_intelligence?.hostname || (submittedUrl ? new URL(submittedUrl).hostname : 'UNKNOWN TARGET')
+  } catch (e) {
+    targetHostname = data?.domain_intelligence?.hostname || submittedUrl || 'TARGET'
+  }
+
+  const finalRisk = data?.final_risk_report || {}
+  const hasOverallRisk = typeof finalRisk.overall_risk_score === 'number'
+  let riskScore = 0
+  if (hasOverallRisk) {
+    riskScore = Math.max(0, Math.min(100, Math.round(finalRisk.overall_risk_score)))
+  } else if (typeof data?.risk_score === 'number') {
+    riskScore = Math.max(0, Math.min(100, Math.round(data.risk_score)))
+  } else if (typeof data?.health_score === 'number') {
+    riskScore = Math.max(0, Math.min(100, Math.round(100 - data.health_score)))
+  } else if (typeof data?.score === 'number') {
+    riskScore = Math.max(0, Math.min(100, Math.round(100 - data.score)))
+  }
+
+  const ti = data?.threat_intelligence || {}
+  const isConfirmedThreat = Boolean(ti.is_threat_confirmed)
+  const dom = data?.domain_intelligence || {}
+  const ssl = dom?.ssl_report || {}
+  const rdap = dom?.rdap_report || {}
+  const web = data?.website_assessment || {}
+  const ai = data?.ai_investigation || {}
+
+  const incidentReport = useMemo(() => extractIncidents(data), [data])
+  const {
+    summary: incidentSummary = { total: 0, critical: 0, high: 0, medium: 0, low: 0 },
+    incidents = [],
+    observations = [],
+    isIncomplete = false,
+    missingChecks = [],
+  } = incidentReport || {}
+
+  // Risk Category & Summary
+  const { category, categoryLabel, categoryColor, categoryBg, scoreSummary } = useMemo(() => {
+    const rawCat = String(finalRisk.risk_category || '').toLowerCase()
+
+    if (isConfirmedThreat || rawCat.includes('critical') || riskScore >= 75) {
+      return {
+        category: 'CRITICAL',
+        categoryLabel: 'CRITICAL RISK',
+        categoryColor: '#cc2222',
+        categoryBg: '#fff0f0',
+        scoreSummary: 'Severe security risk detected. Access should be blocked to prevent potential compromise.',
+      }
+    }
+    if (rawCat.includes('high') || riskScore >= 50) {
+      return {
+        category: 'HIGH',
+        categoryLabel: 'HIGH RISK',
+        categoryColor: '#e67e22',
+        categoryBg: '#fff6ed',
+        scoreSummary: 'High probability of malicious intent. Do not enter passwords or confidential details.',
+      }
+    }
+    if (rawCat.includes('mod') || rawCat.includes('med') || riskScore >= 25) {
+      return {
+        category: 'MEDIUM',
+        categoryLabel: 'MODERATE RISK',
+        categoryColor: '#c8952a',
+        categoryBg: '#fffbf0',
+        scoreSummary: 'Moderate security warnings identified. Exercise caution before interacting with this page.',
+      }
+    }
+    return {
+      category: 'LOW',
+      categoryLabel: 'LOW RISK',
+      categoryColor: '#3a7a3a',
+      categoryBg: '#f0f9f0',
+      scoreSummary: 'This website appears safe and trustworthy to browse under standard security practices.',
+    }
+  }, [finalRisk.risk_category, isConfirmedThreat, riskScore])
+
+  // Concise 2–4 reasons behind the score
+  const reasons = useMemo(() => {
+    const list = []
+
+    if (isConfirmedThreat || (ti.providers_malicious_count && ti.providers_malicious_count > 0)) {
+      const providers = ti.provider_results || {}
+      const hitNames = Object.entries(providers)
+        .filter(([_, p]) => p && (p.is_malicious || String(p.status || '').toLowerCase() === 'malicious'))
+        .map(([k]) => (k === 'google_safe_browsing' ? 'Google Safe Browsing' : k === 'virustotal' ? 'VirusTotal' : k === 'urlhaus' ? 'URLhaus' : k))
+      const feedStr = hitNames.length > 0 ? ` (${hitNames.join(', ')})` : ''
+      list.push({
+        type: 'danger',
+        icon: '✖',
+        title: 'Confirmed Malicious Threat',
+        text: `Flagged as an active online threat by security intelligence feeds${feedStr}.`,
+      })
+    }
+
+    const impersonation = web.brand_impersonation || {}
+    if (impersonation.is_impersonation_detected) {
+      const brand = impersonation.target_brand ? `mimicking ${impersonation.target_brand}` : 'mimicking a known brand'
+      list.push({
+        type: 'danger',
+        icon: '✖',
+        title: 'Brand Impersonation Detected',
+        text: `The webpage appears to be fake or spoofed, ${brand} to mislead visitors.`,
+      })
+    }
+
+    const formAnalysis = web.form_analysis || {}
+    if (formAnalysis.has_external_credential_action || formAnalysis.has_insecure_http_action) {
+      list.push({
+        type: 'danger',
+        icon: '✖',
+        title: 'Insecure Credential Action',
+        text: 'Contains login forms that transmit sensitive passwords to an external or unencrypted server.',
+      })
+    }
+
+    const domainRisks = Array.isArray(dom.risk_indicators) ? dom.risk_indicators : []
+    const deceptiveDesc = domainRisks.find((r) => /deceptive|typosquatting|spoofing|userinfo/i.test(r))
+    if (deceptiveDesc) {
+      const isBrandLookalike = /google|microsoft|apple|paypal|amazon|brand/i.test(deceptiveDesc)
+      list.push({
+        type: 'danger',
+        icon: '✖',
+        title: isBrandLookalike ? 'Deceptive Brand Spoofing Address' : 'Misleading Web Address',
+        text: deceptiveDesc || 'The web address uses deceptive characters or misleading prefixing designed to imitate another website.',
+      })
+    }
+
+    if (web.suspicious_redirect) {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'Suspicious Redirection Pathway',
+        text: 'The link redirects through multiple intermediate destinations before loading the destination.',
+      })
+    }
+
+    const rawSslStatus = String(ssl.status || '').toLowerCase()
+    const isHttpTransport = ssl.tls_outcome === 'HTTPS_NOT_USED' || ssl.status === 'not_applicable' || submittedUrl.toLowerCase().startsWith('http://')
+    const isCertInvalid = ssl.tls_outcome === 'INVALID_CERTIFICATE' || (ssl.is_valid === false && ['invalid', 'expired'].includes(rawSslStatus))
+
+    if (isHttpTransport) {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'Missing HTTPS Encryption',
+        text: 'The website connection uses unencrypted HTTP rather than secure HTTPS.',
+      })
+    } else if (isCertInvalid) {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'Invalid or Expired TLS Certificate',
+        text: 'The website security certificate failed validation, leaving browsing traffic vulnerable to interception.',
+      })
+    } else if (ssl && ssl.is_valid && ssl.days_until_expiration !== undefined && ssl.days_until_expiration < 14) {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'Security Certificate Expiring Soon',
+        text: `The website's SSL certificate expires in ${ssl.days_until_expiration} days.`,
+      })
+    }
+
+    if (rdap && typeof rdap.domain_age_days === 'number' && rdap.domain_age_days < 30) {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'Very New Domain Registration',
+        text: `Registered only ${rdap.domain_age_days} days ago. Brand-new domains carry higher statistical risk.`,
+      })
+    }
+
+    const isSuspiciousThreat = Boolean(ti.is_suspicious || ti.threat_tier === 'credible_suspicious' || ti.is_threat_suspicious)
+    if (!isConfirmedThreat && isSuspiciousThreat) {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'Unconfirmed Threat Telemetry',
+        text: 'Heuristic security scanners flagged potential anomalies in threat intelligence feeds, awaiting independent confirmation.',
+      })
+    } else if (!isConfirmedThreat && (!ti.providers_malicious_count || ti.providers_malicious_count === 0)) {
+      if (ti.providers_checked > 0) {
+        list.push({
+          type: 'success',
+          icon: '✔',
+          title: 'Clean Threat Reputation',
+          text: `Verified against ${ti.providers_checked} major security threat databases with zero blacklist flags.`,
+        })
+      } else {
+        list.push({
+          type: 'success',
+          icon: '✔',
+          title: 'No Blacklist Records Found',
+          text: 'The website is not currently listed on any active cybersecurity threat registries.',
+        })
+      }
+    }
+
+    if (ssl && ssl.is_valid === true) {
+      const issuer = ssl.issuer ? `issued by ${ssl.issuer}` : 'from a trusted authority'
+      list.push({
+        type: 'success',
+        icon: '✔',
+        title: 'Valid HTTPS Security',
+        text: `Traffic is encrypted with an active SSL certificate ${issuer}.`,
+      })
+    }
+
+    if (rdap && typeof rdap.domain_age_days === 'number' && rdap.domain_age_days >= 365) {
+      const years = Math.floor(rdap.domain_age_days / 365)
+      list.push({
+        type: 'success',
+        icon: '✔',
+        title: 'Established Domain History',
+        text: `Domain has been registered and active for over ${years} year${years > 1 ? 's' : ''} with consistent DNS records.`,
+      })
+    }
+
+    const contentState = web.content_inspection_state
+    const isDomInspectionAvailable = Boolean(
+      web.dom_inspection_available !== false &&
+      web.is_accessible !== false &&
+      contentState !== 'INSPECTION_UNAVAILABLE' &&
+      contentState !== 'INSPECTION_ERROR' &&
+      !['blocked', 'timeout', 'unavailable', 'partial', 'error'].includes(web.inspection_state)
+    )
+
+    if (isDomInspectionAvailable) {
+      const hasSuspiciousDom = Boolean(
+        web.suspicious_redirect ||
+        impersonation.is_impersonation_detected ||
+        formAnalysis.has_external_credential_action ||
+        formAnalysis.has_insecure_http_action ||
+        contentState === 'SUSPICIOUS_CONTENT_DETECTED'
+      )
+      if (!hasSuspiciousDom) {
+        list.push({
+          type: 'success',
+          icon: '✔',
+          title: 'Safe Webpage Content',
+          text: 'No deceptive password forms, hidden redirects, or anomalous page behaviors were detected during DOM inspection.',
+        })
+      }
+    } else {
+      const errReason = web.fetch_error || (web.status_code ? `HTTP ${web.status_code}` : 'Connection unreachable or timed out')
+      list.push({
+        type: 'info',
+        icon: 'ℹ',
+        title: 'Webpage Content Inspection Unavailable',
+        text: `Automated DOM content inspection could not be performed (${errReason}).`,
+      })
+    }
+
+    if (list.length < 2) {
+      const expl = finalRisk.explanation || ai.investigation_summary || ''
+      if (expl) {
+        list.push({
+          type: category === 'LOW' ? 'success' : category === 'MEDIUM' ? 'warning' : 'danger',
+          icon: category === 'LOW' ? '✔' : category === 'MEDIUM' ? '⚠' : '✖',
+          title: 'Overall Security Verdict',
+          text: expl,
+        })
+      }
+    }
+
+    if (category === 'CRITICAL' || category === 'HIGH' || category === 'MEDIUM') {
+      list.sort((a, b) => {
+        const order = { danger: 0, warning: 1, info: 2, success: 3 }
+        return (order[a.type] ?? 4) - (order[b.type] ?? 4)
+      })
+    }
+
+    return list.slice(0, 4)
+  }, [isConfirmedThreat, ti, web, dom, ssl, rdap, finalRisk, ai, category, submittedUrl])
+
+  const scanTimestamp = data?.timestamp
+    ? new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '06:15 pm'
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Top Header Bar ── */}
+    <div style={{ width: '100%', overflow: 'hidden' }}>
+      {/* ── Bubble Header: Verdict & Badge (matches Image 1) ── */}
       <div
+        className="cloud-bubble-header"
         style={{
+          minHeight: '54px',
+          padding: '14px 20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '10px',
-          paddingBottom: '14px',
-          borderBottom: `2px dashed ${theme.borderColor}40`,
+          gap: '12px',
+          borderBottom: '1px solid #e5ebe2',
+          backgroundColor: '#fafcf9',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <span
             style={{
               fontFamily: 'var(--font-pixel)',
-              fontSize: '0.88rem',
+              fontSize: '1.1rem',
               color: theme.themeColor,
               letterSpacing: '0.06em',
-              fontWeight: 'bold',
+              lineHeight: 1,
             }}
           >
             {theme.label}
@@ -669,886 +765,976 @@ function SuccessCloudContent({
             style={{
               fontFamily: 'var(--font-pixel)',
               fontSize: '0.62rem',
-              backgroundColor: theme.metaBg,
               color: theme.themeColor,
-              border: `1.5px solid ${theme.metaBorder}`,
-              borderRadius: '3px',
-              padding: '3px 8px',
-              letterSpacing: '0.04em',
+              border: `1.5px solid ${theme.themeColor}`,
+              borderRadius: '2px',
+              padding: '2px 8px',
+              backgroundColor: `${theme.themeColor}14`,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
             }}
           >
             {theme.badgeLabel}
           </span>
-          {isDevPreview && (
-            <span
-              style={{
-                fontFamily: 'var(--font-pixel)',
-                fontSize: '0.58rem',
-                backgroundColor: '#ffffff',
-                color: '#555555',
-                border: '1px solid #999',
-                borderRadius: '3px',
-                padding: '2px 6px',
-              }}
-            >
-              PREVIEW
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.74rem', fontFamily: 'var(--font-mono)', color: '#666' }}>
+          {data?.scan_id && (
+            <span>
+              SCAN ID: <strong style={{ color: '#222' }}>{String(data.scan_id).slice(0, 8)}...</strong>
             </span>
           )}
-        </div>
-
-        {/* Risk Score Pill */}
-        <div
-          style={{
-            fontFamily: 'var(--font-pixel)',
-            fontSize: '0.72rem',
-            backgroundColor: theme.scorePillBg,
-            color: theme.scorePillText,
-            border: `2px solid ${theme.scorePillBorder}`,
-            borderRadius: '4px',
-            padding: '5px 12px',
-            boxShadow: `2px 2px 0 ${theme.shadowColor}`,
-            letterSpacing: '0.06em',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <span>SCORE:</span>
-          <span style={{ fontSize: '0.84rem' }}>{data.score}/100</span>
+          <span>🕒 {scanTimestamp}</span>
         </div>
       </div>
 
-      {/* Target URL banner */}
-      {url && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: theme.metaBg,
-            border: `1.5px solid ${theme.metaBorder}`,
-            borderRadius: '4px',
-            padding: '7px 12px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.82rem',
-            color: '#222222',
-            wordBreak: 'break-all',
-          }}
-        >
-          <span style={{ color: theme.themeColor, fontWeight: 'bold' }}>TARGET:</span>
-          <span>{url}</span>
-        </div>
-      )}
-
-      {/* Primary Voice of Character / Explanation */}
+      {/* ── Target Bar ── */}
       <div
         style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.98rem',
-          lineHeight: '1.7',
-          color: '#1a1a1a',
-          fontWeight: 500,
-          backgroundColor: '#ffffffcc',
-          border: `1.5px solid ${theme.borderColor}30`,
-          borderRadius: '6px',
-          padding: '14px 16px',
+          padding: '10px 20px',
+          backgroundColor: '#ffffff',
+          borderBottom: '2px solid #2a2a2a',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.78rem',
+          color: '#444',
+          flexWrap: 'wrap',
+          gap: '8px',
         }}
       >
-        "{data.explanation}"
+        <div style={{ wordBreak: 'break-all', minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ color: '#888' }}>TARGET:</span>
+          <strong style={{ color: '#111' }}>{submittedUrl}</strong>
+        </div>
       </div>
 
-      {/* ── Key Telemetry Signals Grid ── */}
+      {/* ── 1. SECURITY RISK SCORE HERO ── */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: '10px',
+          padding: '24px 22px 20px',
+          textAlign: 'center',
+          backgroundColor: '#ffffff',
+          borderBottom: '2px solid #2a2a2a',
         }}
       >
-        <SignalCard label="DETECTION STATUS" value={data.detectionStatus} theme={theme} />
-        <SignalCard label="THREAT TYPE" value={data.threatType} theme={theme} />
-        <SignalCard label="EVALUATION CONFIDENCE" value={data.confidence} theme={theme} />
-        <SignalCard
-          label="RISK CLASSIFICATION"
-          value={data.classification.toUpperCase()}
-          theme={theme}
-          highlight
-        />
-      </div>
-
-      {/* ── Detection Evidence Breakdown ── */}
-      {data.evidence && data.evidence.length > 0 && (
         <div
           style={{
-            backgroundColor: '#ffffffcc',
-            border: `1.5px solid ${theme.borderColor}30`,
-            borderRadius: '6px',
-            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
           }}
         >
           <div
             style={{
               fontFamily: 'var(--font-pixel)',
-              fontSize: '0.66rem',
-              color: theme.themeColor,
-              letterSpacing: '0.06em',
-              marginBottom: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              fontSize: '0.68rem',
+              color: '#666',
+              letterSpacing: '0.12em',
+              marginBottom: '6px',
             }}
           >
-            <span>▶</span>
-            KEY DETECTION EVIDENCE
+            SECURITY RISK SCORE
           </div>
-          <ul
+
+          {/* Prominent Score Number */}
+          <div
             style={{
-              listStyle: 'none',
-              padding: 0,
-              margin: 0,
-              display: 'grid',
-              gap: '6px',
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'center',
+              gap: '8px',
+              lineHeight: 1,
             }}
           >
-            {data.evidence.map((item, idx) => (
-              <li
+            <span
+              style={{
+                fontFamily: 'var(--font-pixel)',
+                fontSize: 'clamp(2.8rem, 5vw, 4rem)',
+                color: categoryColor,
+                fontWeight: 400,
+              }}
+            >
+              {riskScore}
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '1.15rem',
+                color: '#888',
+                fontWeight: 700,
+              }}
+            >
+              / 100
+            </span>
+          </div>
+
+          {/* Risk Category Pill */}
+          <div
+            style={{
+              marginTop: '10px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '5px 14px',
+              backgroundColor: categoryBg,
+              border: `2px solid ${categoryColor}`,
+              borderRadius: '3px',
+              boxShadow: `2px 2px 0 ${categoryColor}`,
+            }}
+          >
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '1px',
+                backgroundColor: categoryColor,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'var(--font-pixel)',
+                fontSize: '0.78rem',
+                color: categoryColor,
+                letterSpacing: '0.08em',
+              }}
+            >
+              {categoryLabel}
+            </span>
+          </div>
+        </div>
+
+        {/* 1-sentence bottom-line summary */}
+        <p
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.92rem',
+            color: '#333',
+            lineHeight: 1.6,
+            maxWidth: '620px',
+            margin: '16px auto 0',
+            fontWeight: 500,
+          }}
+        >
+          {scoreSummary}
+        </p>
+      </div>
+
+      {/* ── 2. REASON BEHIND THE SCORE ── */}
+      <div style={{ padding: '22px 22px 18px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontFamily: 'var(--font-pixel)',
+            fontSize: '0.74rem',
+            color: '#2a2a2a',
+            letterSpacing: '0.06em',
+            marginBottom: '16px',
+          }}
+        >
+          <span style={{ color: '#3a7a3a' }}>▶</span>
+          REASON BEHIND THE SCORE
+        </div>
+
+        {/* Reason Cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {reasons.map((item, idx) => {
+            const isDanger = item.type === 'danger'
+            const isWarning = item.type === 'warning'
+            const isInfo = item.type === 'info'
+            const itemBorder = isDanger ? '#cc2222' : isWarning ? '#c8952a' : isInfo ? '#5b7083' : '#3a7a3a'
+            const itemBg = isDanger ? '#fff8f8' : isWarning ? '#fffdf7' : isInfo ? '#f5f8fa' : '#f8fbf8'
+
+            return (
+              <div
                 key={idx}
                 style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.84rem',
-                  color: '#2a2a2a',
+                  padding: '12px 16px',
+                  backgroundColor: itemBg,
+                  border: '1px solid #d8d8d0',
+                  borderLeft: `4px solid ${itemBorder}`,
+                  borderRadius: '3px',
                   display: 'flex',
                   alignItems: 'flex-start',
-                  gap: '8px',
-                  lineHeight: '1.5',
+                  gap: '12px',
                 }}
               >
                 <span
                   style={{
-                    color: theme.themeColor,
-                    fontWeight: 'bold',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '2px',
+                    backgroundColor: itemBorder,
+                    color: '#fff',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    lineHeight: 1,
                     flexShrink: 0,
-                    lineHeight: '1.4',
+                    marginTop: '2px',
                   }}
                 >
-                  ■
+                  {item.icon}
                 </span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
-      {/* ── Recommended Action Banner ── */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 700,
+                      fontSize: '0.84rem',
+                      color: '#111',
+                      marginBottom: '3px',
+                    }}
+                  >
+                    {item.title}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.84rem',
+                      color: '#444',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {item.text}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* ── 3. SECURITY INCIDENTS DETECTED ── */}
+        <div
+          style={{
+            marginTop: '22px',
+            paddingTop: '18px',
+            borderTop: '2px solid #2a2a2a',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '14px',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontFamily: 'var(--font-pixel)',
+                fontSize: '0.74rem',
+                color: '#2a2a2a',
+                letterSpacing: '0.06em',
+              }}
+            >
+              <span style={{ color: incidentSummary.critical > 0 ? '#cc2222' : incidentSummary.high > 0 ? '#e67e22' : '#3a7a3a' }}>■</span>
+              SECURITY INCIDENTS DETECTED
+            </div>
+
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.72rem',
+                backgroundColor: '#f0f0eb',
+                border: '1px solid #2a2a2a',
+                borderRadius: '2px',
+                padding: '2px 8px',
+                color: '#333',
+                fontWeight: 700,
+              }}
+            >
+              {incidentSummary.total} UNIQUE {incidentSummary.total === 1 ? 'FINDING' : 'FINDINGS'}
+            </div>
+          </div>
+
+          {/* 5 Prominent Metrics Tiles */}
+          <div
+            className="metrics-tiles-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: '10px',
+              marginBottom: '16px',
+            }}
+          >
+            <MetricTile label="TOTAL" count={incidentSummary.total} color="#2a2a2a" bg="#ffffff" />
+            <MetricTile label="CRITICAL" count={incidentSummary.critical} color="#cc2222" bg="#fff0f0" />
+            <MetricTile label="HIGH" count={incidentSummary.high} color="#e67e22" bg="#fff6ed" />
+            <MetricTile label="MEDIUM" count={incidentSummary.medium} color="#c8952a" bg="#fffbf0" />
+            <MetricTile label="LOW" count={incidentSummary.low} color="#3a7a3a" bg="#f0f9f0" />
+          </div>
+
+          {/* Incomplete Scan Warning */}
+          {isIncomplete && (
+            <div
+              style={{
+                marginBottom: '14px',
+                padding: '10px 14px',
+                backgroundColor: '#fffdf0',
+                border: '1px solid #d4b106',
+                borderLeft: '4px solid #d4b106',
+                borderRadius: '3px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.74rem',
+                color: '#614700',
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>⚠ Investigation Notice:</strong> Certain telemetry checks were unavailable: {(missingChecks || []).join(' · ')}.
+            </div>
+          )}
+
+          {/* Incidents List or Clean Zero-Incidents Banner */}
+          {incidents.length === 0 ? (
+            <div
+              style={{
+                padding: '16px 18px',
+                backgroundColor: '#f4fbf4',
+                border: '1px solid #a8d5a8',
+                borderLeft: '4px solid #3a7a3a',
+                borderRadius: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '2px',
+                  backgroundColor: '#3a7a3a',
+                  color: '#fff',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  flexShrink: 0,
+                }}
+              >
+                ✔
+              </span>
+              <div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    fontSize: '0.84rem',
+                    color: '#2a5a2a',
+                    marginBottom: '3px',
+                  }}
+                >
+                  NO CONFIRMED SECURITY INCIDENTS DETECTED
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.82rem',
+                    color: '#446644',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  No active threat intelligence blacklist records, deceptive credential forms, brand spoofing, or invalid TLS certificates were found.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {incidents.map((incident) => {
+                const isCrit = incident.severity === 'CRITICAL'
+                const isHigh = incident.severity === 'HIGH'
+                const isMed = incident.severity === 'MEDIUM'
+                const color = isCrit ? '#cc2222' : isHigh ? '#e67e22' : isMed ? '#c8952a' : '#3a7a3a'
+                const bg = isCrit ? '#fff8f8' : isHigh ? '#fff9f4' : isMed ? '#fffdf7' : '#f8fcf8'
+                const isConfirmed = incident.status === 'CONFIRMED'
+
+                return (
+                  <div
+                    key={incident.id}
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: bg,
+                      border: '1px solid #d8d8d0',
+                      borderLeft: `4px solid ${color}`,
+                      borderRadius: '3px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 700,
+                          fontSize: '0.84rem',
+                          color: '#111',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <span style={{ color, fontSize: '0.75rem' }}>■</span>
+                        {incident.title}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-pixel)',
+                            fontSize: '0.6rem',
+                            letterSpacing: '0.04em',
+                            padding: '2px 6px',
+                            borderRadius: '2px',
+                            backgroundColor: isConfirmed ? '#eef2ff' : '#f4f4f4',
+                            border: `1px solid ${isConfirmed ? '#6366f1' : '#999'}`,
+                            color: isConfirmed ? '#4338ca' : '#555',
+                          }}
+                        >
+                          {incident.status}
+                        </span>
+
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-pixel)',
+                            fontSize: '0.6rem',
+                            letterSpacing: '0.04em',
+                            padding: '2px 6px',
+                            borderRadius: '2px',
+                            backgroundColor: color,
+                            color: '#fff',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {incident.severity}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.82rem',
+                        color: '#444',
+                        lineHeight: 1.5,
+                        marginBottom: '8px',
+                      }}
+                    >
+                      {incident.description}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                        paddingTop: '6px',
+                        borderTop: '1px dashed #e4e4dc',
+                        fontSize: '0.7rem',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ color: '#888' }}>SOURCES:</span>
+                        {(incident.sources || []).map((src, sIdx) => (
+                          <span
+                            key={sIdx}
+                            style={{
+                              backgroundColor: '#ebebe4',
+                              border: '1px solid #d0d0c8',
+                              padding: '1px 5px',
+                              borderRadius: '2px',
+                              color: '#333',
+                            }}
+                          >
+                            {src}
+                          </span>
+                        ))}
+                      </div>
+
+                      {incident.affected_asset && (
+                        <div style={{ color: '#777', wordBreak: 'break-all' }}>
+                          <span style={{ color: '#999' }}>ASSET: </span>
+                          <span style={{ color: '#333' }}>{incident.affected_asset}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Informational Observations */}
+          {observations.length > 0 && (
+            <div
+              style={{
+                marginTop: '14px',
+                padding: '10px 14px',
+                backgroundColor: '#f5f5f0',
+                border: '1px solid #d4d4cc',
+                borderRadius: '3px',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
+                  fontSize: '0.73rem',
+                  color: '#444',
+                  marginBottom: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span style={{ color: '#2a5a2a' }}>ℹ</span>
+                INFORMATIONAL OBSERVATIONS (Non-Incident Telemetry):
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {observations.map((obs) => (
+                  <div
+                    key={obs.id}
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.76rem',
+                      color: '#555',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    • <strong>{obs.title}:</strong> {obs.description}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Raw Telemetry Toggle Drawer */}
+        {data && (
+          <div style={{ marginTop: '16px' }}>
+            <button
+              type="button"
+              onClick={onToggleRawJson}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.7rem',
+                color: '#666',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 0',
+              }}
+            >
+              <span>{showRawJson ? '▲ HIDE' : '▼ VIEW'} RAW TELEMETRY DATA (JSON)</span>
+            </button>
+            {showRawJson && (
+              <pre
+                style={{
+                  marginTop: '8px',
+                  backgroundColor: '#1a1a1a',
+                  color: '#85d985',
+                  padding: '12px',
+                  borderRadius: '4px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.72rem',
+                  lineHeight: '1.5',
+                  overflowX: 'auto',
+                  maxHeight: '260px',
+                  border: '1px solid #333',
+                }}
+              >
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            )}
+          </div>
+        )}
+
+        {/* ── Footer Navigation & Expression Switcher ── */}
+        <div
+          style={{
+            marginTop: '22px',
+            paddingTop: '16px',
+            borderTop: '1px dashed #d8d8d0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.72rem',
+              color: '#777',
+            }}
+          >
+            Evaluated via TrustLens Multi-Engine Security Pipeline
+          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Dev preview buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.58rem', color: '#888' }}>
+                PREVIEW:
+              </span>
+              <button
+                type="button"
+                onClick={() => onSelectPreview('safe')}
+                style={{
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.58rem',
+                  padding: '3px 7px',
+                  backgroundColor: previewOverride === 'safe' ? '#3a7a3a' : '#fff',
+                  color: previewOverride === 'safe' ? '#fff' : '#3a7a3a',
+                  border: '1px solid #3a7a3a',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                }}
+              >
+                Safe
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectPreview('suspicious')}
+                style={{
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.58rem',
+                  padding: '3px 7px',
+                  backgroundColor: previewOverride === 'suspicious' ? '#c8952a' : '#fff',
+                  color: previewOverride === 'suspicious' ? '#fff' : '#c8952a',
+                  border: '1px solid #c8952a',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                }}
+              >
+                Suspicious
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectPreview('malicious')}
+                style={{
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.58rem',
+                  padding: '3px 7px',
+                  backgroundColor: previewOverride === 'malicious' ? '#cc2222' : '#fff',
+                  color: previewOverride === 'malicious' ? '#fff' : '#cc2222',
+                  border: '1px solid #cc2222',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                }}
+              >
+                High Risk
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectPreview('loading')}
+                style={{
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.58rem',
+                  padding: '3px 7px',
+                  backgroundColor: previewOverride === 'loading' ? '#2b772b' : '#fff',
+                  color: previewOverride === 'loading' ? '#fff' : '#2b772b',
+                  border: '1px solid #2b772b',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                }}
+              >
+                Loading
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={onReset}
+              style={{
+                fontFamily: 'var(--font-pixel)',
+                fontSize: '0.7rem',
+                color: '#fff',
+                backgroundColor: '#3a7a3a',
+                border: '2px solid #2a2a2a',
+                borderRadius: '3px',
+                padding: '8px 18px',
+                cursor: 'pointer',
+                letterSpacing: '0.04em',
+                boxShadow: '2px 2px 0 #2a2a2a',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#4a8a4a'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#3a7a3a'
+                e.currentTarget.style.transform = 'translateY(0)'
+              }}
+            >
+              ← SCAN ANOTHER WEBSITE
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MetricTile({ label, count, color, bg }) {
+  return (
+    <div
+      style={{
+        padding: '10px 8px',
+        backgroundColor: bg,
+        border: '1px solid #2a2a2a',
+        borderRadius: '3px',
+        boxShadow: '2px 2px 0 #2a2a2a',
+        textAlign: 'center',
+      }}
+    >
       <div
         style={{
-          backgroundColor: theme.metaBg,
-          border: `2px solid ${theme.borderColor}`,
-          borderRadius: '6px',
-          padding: '12px 16px',
-          boxShadow: `2px 2px 0 ${theme.shadowColor}`,
+          fontFamily: 'var(--font-pixel)',
+          fontSize: '0.62rem',
+          color: '#555',
+          letterSpacing: '0.06em',
+          marginBottom: '4px',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontFamily: 'var(--font-pixel)',
+          fontSize: '1.35rem',
+          color: color,
+          lineHeight: 1,
+        }}
+      >
+        {count}
+      </div>
+    </div>
+  )
+}
+
+function LoadingContent({ url, theme }) {
+  return (
+    <div style={{ padding: '32px 24px', textAlign: 'center', width: '100%' }}>
+      {/* Central Cyber Hacker Hero Visual (Image 4) */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: '16px',
         }}
       >
         <div
           style={{
-            fontFamily: 'var(--font-pixel)',
-            fontSize: '0.68rem',
-            color: theme.themeColor,
-            letterSpacing: '0.08em',
-            marginBottom: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
+            position: 'relative',
+            maxWidth: '340px',
+            width: '100%',
+            animation: 'characterBob 3.5s ease-in-out infinite',
           }}
         >
-          <span>🛡</span>
-          RECOMMENDED ACTION
+          <img
+            src="/assets/character-loading.png"
+            alt="Cyber Sentinel Analyzing Target Website"
+            style={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '260px',
+              objectFit: 'contain',
+              display: 'block',
+              margin: '0 auto',
+              filter: 'drop-shadow(0 12px 20px rgba(43, 119, 43, 0.28))',
+            }}
+          />
         </div>
-        <p
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.88rem',
-            color: '#1a1a1a',
-            lineHeight: '1.6',
-            fontWeight: 500,
-          }}
-        >
-          {data.recommendedAction}
-        </p>
       </div>
 
-      {/* Technical Telemetry Toggle (Expands vertically) */}
-      {data.raw && (
-        <div>
-          <button
-            type="button"
-            onClick={onToggleTechnicalDetails}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.62rem',
-              color: theme.themeColor,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 0',
-              letterSpacing: '0.04em',
-            }}
-          >
-            <span>{showTechnicalDetails ? '▲ HIDE' : '▼ VIEW'} RAW TELEMETRY DATA (JSON)</span>
-          </button>
-          {showTechnicalDetails && (
-            <pre
-              style={{
-                marginTop: '8px',
-                backgroundColor: '#1a1a1a',
-                color: '#85d985',
-                padding: '12px',
-                borderRadius: '4px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.74rem',
-                lineHeight: '1.5',
-                overflowX: 'auto',
-                maxHeight: '260px',
-                border: '2px solid #333',
-              }}
-            >
-              {JSON.stringify(data.raw, null, 2)}
-            </pre>
-          )}
+      <div
+        style={{
+          fontFamily: 'var(--font-pixel)',
+          fontSize: '0.92rem',
+          color: theme.themeColor,
+          letterSpacing: '0.08em',
+          marginBottom: '10px',
+        }}
+      >
+        DEEP SECURITY INVESTIGATION IN PROGRESS...
+      </div>
+
+      {url && (
+        <div
+          style={{
+            marginBottom: '16px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.78rem',
+            color: '#333',
+            wordBreak: 'break-all',
+            backgroundColor: '#f5f5f0',
+            padding: '6px 14px',
+            borderRadius: '3px',
+            border: '1px solid #d0d0c8',
+            display: 'inline-block',
+            maxWidth: '90%',
+          }}
+        >
+          <span style={{ color: '#888' }}>TARGET: </span>
+          <strong style={{ color: '#111' }}>{url}</strong>
         </div>
       )}
 
-      {/* ── Footer Actions & Expression Preview Switcher ── */}
+      {/* Cyber Intelligence Pipeline Live Checklist */}
       <div
         style={{
+          maxWidth: '480px',
+          margin: '0 auto',
+          padding: '12px 16px',
+          backgroundColor: '#fafcf9',
+          border: '1px solid #d4ded0',
+          borderRadius: '4px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.74rem',
+          color: '#444',
+          textAlign: 'left',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          paddingTop: '12px',
-          borderTop: `2px dashed ${theme.borderColor}30`,
+          flexDirection: 'column',
+          gap: '6px',
         }}
       >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#3a7a3a' }}>✔</span>
+          <span>URL Syntax & Private SSRF Perimeter Guard</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#2b772b', animation: 'spin 1.2s linear infinite', display: 'inline-block' }}>⟳</span>
+          <span>Multi-Engine Threat Feeds (VirusTotal, Google SB, URLhaus)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#2b772b', animation: 'spin 1.2s linear infinite', display: 'inline-block' }}>⟳</span>
+          <span>Dual DistilBERT & Neural ML Consensus Scoring</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#2b772b', animation: 'spin 1.2s linear infinite', display: 'inline-block' }}>⟳</span>
+          <span>TLS/SSL Certificate Chain & DOM Forensic Inspection</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function UnavailableContent({ onRetry, onReset, theme }) {
+  return (
+    <div style={{ padding: '28px 22px 28px 112px' }}>
+      <div style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.85rem', color: theme.themeColor, marginBottom: '8px' }}>
+        BACKEND DISCONNECTED
+      </div>
+      <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.86rem', color: '#444', lineHeight: 1.6, marginBottom: '16px' }}>
+        The website security investigation backend is currently unreachable. No fabricated scores or reports are generated.
+      </p>
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={onRetry}
+          style={{
+            fontFamily: 'var(--font-pixel)',
+            fontSize: '0.68rem',
+            padding: '7px 16px',
+            backgroundColor: '#3a7a3a',
+            color: '#fff',
+            border: '2px solid #2a2a2a',
+            cursor: 'pointer',
+          }}
+        >
+          RETRY
+        </button>
         <button
           type="button"
           onClick={onReset}
           style={{
             fontFamily: 'var(--font-pixel)',
-            fontSize: '0.7rem',
-            backgroundColor: '#ffffff',
-            color: '#222222',
+            fontSize: '0.68rem',
+            padding: '7px 16px',
+            backgroundColor: '#fff',
+            color: '#222',
             border: '2px solid #2a2a2a',
-            borderRadius: '4px',
-            padding: '8px 16px',
             cursor: 'pointer',
-            boxShadow: '2px 2px 0 #2a2a2a',
-            letterSpacing: '0.05em',
-            transition: 'transform 0.1s, box-shadow 0.1s',
-          }}
-          onMouseDown={e => {
-            e.currentTarget.style.transform = 'translate(2px, 2px)'
-            e.currentTarget.style.boxShadow = 'none'
-          }}
-          onMouseUp={e => {
-            e.currentTarget.style.transform = 'none'
-            e.currentTarget.style.boxShadow = '2px 2px 0 #2a2a2a'
           }}
         >
-          ◀ INVESTIGATE ANOTHER TARGET
+          RESET
         </button>
-
-        {/* Expression Preview Pills (Quickly test Safe / Suspicious / Malicious states) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              color: '#666666',
-              letterSpacing: '0.04em',
-            }}
-          >
-            EXPRESSION PREVIEW:
-          </span>
-          <button
-            type="button"
-            onClick={() => onDevPreview('safe')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: data.classification === 'safe' ? '#2b772b' : '#ffffff',
-              color: data.classification === 'safe' ? '#ffffff' : '#2b772b',
-              border: '1.5px solid #2b772b',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Safe
-          </button>
-          <button
-            type="button"
-            onClick={() => onDevPreview('suspicious')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: data.classification === 'suspicious' ? '#c97e00' : '#ffffff',
-              color: data.classification === 'suspicious' ? '#ffffff' : '#c97e00',
-              border: '1.5px solid #c97e00',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Suspicious
-          </button>
-          <button
-            type="button"
-            onClick={() => onDevPreview('malicious')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: data.classification === 'malicious' ? '#c81e1e' : '#ffffff',
-              color: data.classification === 'malicious' ? '#ffffff' : '#c81e1e',
-              border: '1.5px solid #c81e1e',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Malicious
-          </button>
-        </div>
       </div>
     </div>
   )
 }
 
-/* ─────────────────────────────────────────────────────────
-   2. Loading Cloud Content
-   ───────────────────────────────────────────────────────── */
-function LoadingCloudContent({ url, theme }) {
+function ErrorContent({ error, onRetry, onReset, theme }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          paddingBottom: '12px',
-          borderBottom: `2px dashed ${theme.borderColor}40`,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--font-pixel)',
-            fontSize: '0.84rem',
-            color: theme.themeColor,
-            letterSpacing: '0.06em',
-          }}
-        >
-          SECURITY INVESTIGATION RUNNING…
-        </span>
-        <span
-          style={{
-            display: 'inline-block',
-            width: '10px',
-            height: '10px',
-            backgroundColor: theme.themeColor,
-            borderRadius: '2px',
-            animation: 'pulseGlow 1s infinite',
-          }}
-        />
+    <div style={{ padding: '28px 22px 28px 112px' }}>
+      <div style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.85rem', color: '#cc2222', marginBottom: '8px' }}>
+        INVESTIGATION FAILED
       </div>
-
-      {url && (
-        <div
-          style={{
-            backgroundColor: theme.metaBg,
-            border: `1.5px solid ${theme.metaBorder}`,
-            borderRadius: '4px',
-            padding: '7px 12px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.82rem',
-            color: '#222222',
-            wordBreak: 'break-all',
-          }}
-        >
-          <span style={{ color: theme.themeColor, fontWeight: 'bold' }}>AUDITING:</span> {url}
-        </div>
-      )}
-
-      <p
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.92rem',
-          lineHeight: '1.7',
-          color: '#333333',
-        }}
-      >
-        {theme.fallbackExplanation}
+      <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.86rem', color: '#444', lineHeight: 1.6, marginBottom: '16px' }}>
+        {error || 'An unexpected error occurred while investigating this website.'}
       </p>
-
-      {/* Active telemetry checkpoints */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '8px',
-        }}
-      >
-        {['Phishing Heuristics', 'Global Threat Feeds', 'TLS & Domain Registry', 'Payload Heuristics'].map(
-          (label, idx) => (
-            <div
-              key={idx}
-              style={{
-                backgroundColor: '#ffffffbb',
-                border: `1.5px solid ${theme.metaBorder}`,
-                borderRadius: '4px',
-                padding: '8px 12px',
-                fontFamily: 'var(--font-pixel)',
-                fontSize: '0.64rem',
-                color: theme.themeColor,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <span style={{ animation: 'pulseGlow 1.2s infinite' }}>■</span>
-              <span>{label}</span>
-            </div>
-          )
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────
-   3. Disconnected / Unavailable Cloud Content
-   ───────────────────────────────────────────────────────── */
-function UnavailableCloudContent({ url, theme, onRetry, onReset, onDevPreview }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px',
-          paddingBottom: '12px',
-          borderBottom: `2px dashed ${theme.borderColor}40`,
-        }}
-      >
-        <span
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={onRetry}
           style={{
             fontFamily: 'var(--font-pixel)',
-            fontSize: '0.86rem',
-            color: theme.themeColor,
-            letterSpacing: '0.06em',
+            fontSize: '0.68rem',
+            padding: '7px 16px',
+            backgroundColor: '#3a7a3a',
+            color: '#fff',
+            border: '2px solid #2a2a2a',
+            cursor: 'pointer',
           }}
         >
-          WEBSITE SCANNER BACKEND OFFLINE
-        </span>
-        <span
+          RETRY
+        </button>
+        <button
+          type="button"
+          onClick={onReset}
           style={{
             fontFamily: 'var(--font-pixel)',
-            fontSize: '0.62rem',
+            fontSize: '0.68rem',
+            padding: '7px 16px',
             backgroundColor: '#fff',
-            color: theme.themeColor,
-            border: `1.5px solid ${theme.borderColor}`,
-            borderRadius: '3px',
-            padding: '3px 8px',
+            color: '#222',
+            border: '2px solid #2a2a2a',
+            cursor: 'pointer',
           }}
         >
-          STATUS 503
-        </span>
+          RESET
+        </button>
       </div>
-
-      {url && (
-        <div
-          style={{
-            backgroundColor: theme.metaBg,
-            border: `1.5px solid ${theme.metaBorder}`,
-            borderRadius: '4px',
-            padding: '7px 12px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.82rem',
-            color: '#222222',
-            wordBreak: 'break-all',
-          }}
-        >
-          <span style={{ color: theme.themeColor, fontWeight: 'bold' }}>TARGET:</span> {url}
-        </div>
-      )}
-
-      <div
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.94rem',
-          lineHeight: '1.7',
-          color: '#2b1b00',
-          backgroundColor: '#ffffffdd',
-          border: `1.5px solid ${theme.borderColor}30`,
-          borderRadius: '6px',
-          padding: '14px 16px',
-        }}
-      >
-        "The website security crawler engine is currently disconnected. In accordance with strict zero-fabrication security policies, this target has <strong>NOT</strong> been marked as safe or cleared. All checks remain in safe standby until the telemetry pipeline is active."
-      </div>
-
-      <div
-        style={{
-          backgroundColor: theme.metaBg,
-          border: `1.5px solid ${theme.metaBorder}`,
-          borderRadius: '4px',
-          padding: '10px 14px',
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.84rem',
-          color: '#3b2300',
-          lineHeight: '1.6',
-        }}
-      >
-        💡 <strong>Live Feature Available:</strong> The GitHub Repository Security Health Check directly below is fully connected and operational with Gitleaks, Semgrep, and OSV vulnerability scanning.
-      </div>
-
-      {/* Expression Preview & Actions */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          paddingTop: '10px',
-          borderTop: `2px dashed ${theme.borderColor}30`,
-        }}
-      >
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={onRetry}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.7rem',
-              backgroundColor: theme.themeColor,
-              color: '#ffffff',
-              border: `2px solid ${theme.borderColor}`,
-              borderRadius: '4px',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              boxShadow: `2px 2px 0 ${theme.shadowColor}`,
-            }}
-          >
-            TRY AGAIN
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.7rem',
-              backgroundColor: '#ffffff',
-              color: '#222',
-              border: '2px solid #2a2a2a',
-              borderRadius: '4px',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              boxShadow: '2px 2px 0 #2a2a2a',
-            }}
-          >
-            CANCEL
-          </button>
-        </div>
-
-        {/* Developer Expression Preview Switcher */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              color: '#666',
-            }}
-          >
-            PREVIEW EXPRESSIONS:
-          </span>
-          <button
-            type="button"
-            onClick={() => onDevPreview('safe')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: '#fff',
-              color: '#2b772b',
-              border: '1.5px solid #2b772b',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Safe 🟢
-          </button>
-          <button
-            type="button"
-            onClick={() => onDevPreview('suspicious')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: '#fff',
-              color: '#c97e00',
-              border: '1.5px solid #c97e00',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Suspicious 🟡
-          </button>
-          <button
-            type="button"
-            onClick={() => onDevPreview('malicious')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: '#fff',
-              color: '#c81e1e',
-              border: '1.5px solid #c81e1e',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Malicious 🔴
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────
-   4. Error Cloud Content
-   ───────────────────────────────────────────────────────── */
-function ErrorCloudContent({ error, url, theme, onRetry, onReset, onDevPreview }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px',
-          paddingBottom: '12px',
-          borderBottom: `2px dashed ${theme.borderColor}40`,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--font-pixel)',
-            fontSize: '0.86rem',
-            color: '#c81e1e',
-            letterSpacing: '0.06em',
-          }}
-        >
-          INVESTIGATION HALTED
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-pixel)',
-            fontSize: '0.62rem',
-            backgroundColor: '#fff',
-            color: '#c81e1e',
-            border: '1.5px solid #c81e1e',
-            borderRadius: '3px',
-            padding: '3px 8px',
-          }}
-        >
-          ERROR
-        </span>
-      </div>
-
-      {url && (
-        <div
-          style={{
-            backgroundColor: '#fff',
-            border: '1.5px solid #c81e1e40',
-            borderRadius: '4px',
-            padding: '7px 12px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.82rem',
-            color: '#222222',
-            wordBreak: 'break-all',
-          }}
-        >
-          <span style={{ color: '#c81e1e', fontWeight: 'bold' }}>TARGET:</span> {url}
-        </div>
-      )}
-
-      <p
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.94rem',
-          lineHeight: '1.7',
-          color: '#333333',
-          backgroundColor: '#ffffffdd',
-          border: '1.5px solid #c81e1e30',
-          borderRadius: '6px',
-          padding: '14px 16px',
-        }}
-      >
-        "{error || 'An unexpected failure occurred while inspecting this target. The destination address may be unreachable, filtered by DNS safety rules, or invalid.'}"
-      </p>
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          paddingTop: '10px',
-          borderTop: '2px dashed #c81e1e30',
-        }}
-      >
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={onRetry}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.7rem',
-              backgroundColor: '#c81e1e',
-              color: '#ffffff',
-              border: '2px solid #780e0e',
-              borderRadius: '4px',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              boxShadow: '2px 2px 0 #330000',
-            }}
-          >
-            TRY AGAIN
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.7rem',
-              backgroundColor: '#ffffff',
-              color: '#222',
-              border: '2px solid #2a2a2a',
-              borderRadius: '4px',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              boxShadow: '2px 2px 0 #2a2a2a',
-            }}
-          >
-            DISMISS
-          </button>
-        </div>
-
-        {/* Expression Preview Switcher */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.58rem', color: '#666' }}>
-            TEST EXPRESSIONS:
-          </span>
-          <button
-            type="button"
-            onClick={() => onDevPreview('safe')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: '#fff',
-              color: '#2b772b',
-              border: '1.5px solid #2b772b',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Safe
-          </button>
-          <button
-            type="button"
-            onClick={() => onDevPreview('suspicious')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: '#fff',
-              color: '#c97e00',
-              border: '1.5px solid #c97e00',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Suspicious
-          </button>
-          <button
-            type="button"
-            onClick={() => onDevPreview('malicious')}
-            style={{
-              fontFamily: 'var(--font-pixel)',
-              fontSize: '0.58rem',
-              backgroundColor: '#fff',
-              color: '#c81e1e',
-              border: '1.5px solid #c81e1e',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-            }}
-          >
-            Malicious
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────
-   Helper: Signal Card
-   ───────────────────────────────────────────────────────── */
-function SignalCard({ label, value, theme, highlight = false }) {
-  return (
-    <div
-      style={{
-        backgroundColor: highlight ? theme.metaBg : '#ffffffcc',
-        border: `1.5px solid ${highlight ? theme.themeColor : theme.borderColor + '30'}`,
-        borderRadius: '5px',
-        padding: '9px 12px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
-      }}
-    >
-      <span
-        style={{
-          fontFamily: 'var(--font-pixel)',
-          fontSize: '0.58rem',
-          color: theme.themeColor,
-          letterSpacing: '0.06em',
-        }}
-      >
-        {label}
-      </span>
-      <span
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.84rem',
-          color: highlight ? theme.themeColor : '#222222',
-          fontWeight: 600,
-          wordBreak: 'break-word',
-        }}
-      >
-        {value}
-      </span>
     </div>
   )
 }

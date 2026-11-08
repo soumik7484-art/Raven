@@ -8,6 +8,7 @@ import RepoScanner from './components/RepoScanner'
 import ThreatIntel from './components/ThreatIntel'
 import About from './components/About'
 import Footer from './components/Footer'
+import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
   const [entered, setEntered] = useState(
@@ -62,7 +63,7 @@ export default function App() {
       >
         <Hero />
         <HowItWorks />
-        <Scanner />
+        <ErrorBoundary><Scanner /></ErrorBoundary>
         <RepoScanner />
         <ThreatIntel />
         <About />

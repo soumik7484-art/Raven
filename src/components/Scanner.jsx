@@ -86,7 +86,7 @@ export default function Scanner() {
         }}
       />
 
-      <div className="section-container" style={{ maxWidth: '780px', position: 'relative', zIndex: 1 }}>
+      <div className="section-container" style={{ maxWidth: state !== 'idle' ? '1080px' : '820px', width: '100%', position: 'relative', zIndex: 1, transition: 'max-width 0.25s ease' }}>
 
         {/* ── Section header ── */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
