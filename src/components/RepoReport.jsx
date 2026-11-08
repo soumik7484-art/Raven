@@ -11,13 +11,14 @@ function mapRepoResultToWarriorStatus(report) {
   const { risk_category, overall_score } = report.security_health
 
   // Strict backend-authoritative risk mapping
-  if (risk_category === 'CRITICAL_RISK' || risk_category === 'HIGH_RISK') {
+  // Consistent with URL analyzer: greater number = higher risk
+  if (risk_category === 'CRITICAL_RISK' || risk_category === 'HIGH_RISK' || overall_score >= 70) {
     return 'red' // Defensive warrior
   }
-  if (risk_category === 'NEEDS_ATTENTION' || risk_category === 'INCONCLUSIVE') {
+  if (risk_category === 'NEEDS_ATTENTION' || risk_category === 'INCONCLUSIVE' || overall_score >= 25) {
     return 'yellow' // Thinking warrior
   }
-  if (risk_category === 'HEALTHY' && overall_score >= 80) {
+  if (risk_category === 'HEALTHY' || overall_score < 25) {
     return 'green' // Happy warrior
   }
   return 'yellow'
@@ -200,8 +201,8 @@ export default function RepoReport({ report, onReset, devWarriorStatus = null })
               >
                 <div
                   style={{
-                    width: '68px',
-                    height: '68px',
+                    minWidth: '76px',
+                    padding: '8px 12px',
                     borderRadius: '4px',
                     backgroundColor: getRiskColor(health.risk_category),
                     color: '#fff',
@@ -216,22 +217,35 @@ export default function RepoReport({ report, onReset, devWarriorStatus = null })
                   <span
                     style={{
                       fontFamily: 'var(--font-pixel)',
-                      fontSize: '1.3rem',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {health.overall_score}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.62rem',
+                      fontSize: '0.52rem',
+                      letterSpacing: '0.06em',
                       opacity: 0.9,
-                      marginTop: '2px',
+                      marginBottom: '2px',
+                      textTransform: 'uppercase',
                     }}
                   >
-                    / 100
+                    RISK SCORE
                   </span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-pixel)',
+                        fontSize: '1.4rem',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {health.overall_score}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.62rem',
+                        opacity: 0.9,
+                      }}
+                    >
+                      / 100
+                    </span>
+                  </div>
                 </div>
 
                 <div style={{ flex: 1, minWidth: '200px' }}>
