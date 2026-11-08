@@ -168,7 +168,7 @@ code, kbd, pre, samp {
 
 /* Threat arrow approaching */
 @keyframes arrow-fly {
-  0%   { transform: translateX(0)     translateY(0)     opacity: 1; }
+  0%   { transform: translateX(0)     translateY(0);    opacity: 1; }
   60%  { transform: translateX(-55px) translateY(8px);  opacity: 1; }
   80%  { transform: translateX(-60px) translateY(0);    opacity: 1; }
   100% { transform: translateX(-30px) translateY(-8px); opacity: 0; }
@@ -252,3 +252,20 @@ code, kbd, pre, samp {
 
 
 
+
+
+/* ═══════════════════════════════════════════════════════
+   CUSTOM MINECRAFT PIXEL CURSORS
+   ═══════════════════════════════════════════════════════ */
+html, body {
+  cursor: url('/assets/cursor-crosshair.svg') 7 7, crosshair;
+  image-rendering: pixelated;
+}
+
+a, button, [role="button"], input[type="submit"], input[type="button"], select, summary, label[for] {
+  cursor: url('/assets/cursor-sword.svg') 0 0, pointer !important;
+}
+
+input[type="text"], input[type="url"], input[type="search"], textarea {
+  cursor: text !important;
+}
