@@ -6,7 +6,6 @@ import {
   getRepoScanReport
 } from '../services/repoScanService'
 import RepoReport from './RepoReport'
-import WarriorDevPreview from './WarriorDevPreview'
 
 /**
  * RepoScanner — TRUSTLENS GitHub Repository Security Workstation
@@ -31,7 +30,6 @@ export default function RepoScanner() {
   const [activeScanId, setActiveScanId] = useState(null)
 
   // Developer Preview Mode override (null = live automated mode)
-  const [devWarriorStatus, setDevWarriorStatus] = useState(null)
 
   // Polling for scan progress
   useEffect(() => {
@@ -829,16 +827,9 @@ export default function RepoScanner() {
           <RepoReport
             report={reportData}
             onReset={handleReset}
-            devWarriorStatus={devWarriorStatus}
           />
         )}
       </div>
-
-      {/* ── Developer Character Reaction Preview Floating Widget ── */}
-      <WarriorDevPreview
-        activeStatus={devWarriorStatus}
-        onSelectStatus={setDevWarriorStatus}
-      />
 
       <style>{`
         @keyframes pulse {

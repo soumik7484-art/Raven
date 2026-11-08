@@ -1,5 +1,5 @@
 /**
- * ThreatIntel — HackMatrix
+ * ThreatIntel — Raven
  *
  * Threat Intelligence / Hostile Entity Registry section.
  * White pixel-art themed cards matching the reference design.

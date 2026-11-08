@@ -19,7 +19,7 @@ class GitHubService:
     def _get_headers(self) -> Dict[str, str]:
         headers = {
             "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "HackMatrix-Security-Health-Check/1.0"
+            "User-Agent": "Raven-Security-Health-Check/1.0"
         }
         if GITHUB_TOKEN:
             headers["Authorization"] = f"token {GITHUB_TOKEN}"

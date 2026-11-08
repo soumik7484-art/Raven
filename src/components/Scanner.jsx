@@ -4,7 +4,7 @@ import { startScan } from '../services/scanService'
 import ScanResult from './ScanResult'
 
 /**
- * Scanner — HackMatrix
+ * Scanner — Raven
  *
  * Light-themed security scanner interface matching the reference design.
  * State machine: idle → loading → (unavailable | error | success)
@@ -435,7 +435,7 @@ export default function Scanner() {
                 color: '#555',
                 letterSpacing: '0.06em',
               }}>
-                POWERED BY HACKMATRIX ENGINE
+                POWERED BY RAVEN ENGINE
               </span>
             </div>
           </div>

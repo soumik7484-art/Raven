@@ -50,7 +50,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Preserved HackMatrix Website ── */}
+      {/* ── Preserved Raven Website ── */}
       <Header />
 
       <main

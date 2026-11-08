@@ -1,5 +1,5 @@
 /**
- * HowItWorks — HackMatrix
+ * HowItWorks — Raven
  *
  * Seven-stage investigation pipeline rendered as a connected visual journey.
  * Scroll-triggered animations: cards slide in from left/right, connector draws down.

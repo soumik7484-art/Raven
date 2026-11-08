@@ -1,7 +1,7 @@
 /**
- * About — HackMatrix (Pixel-Art Cyber World Console & Manifesto)
+ * About — Raven (Pixel-Art Cyber World Console & Manifesto)
  *
- * Details the HackMatrix mission and cyber defense pillars
+ * Details the Raven mission and cyber defense pillars
  * within a cohesive Minecraft-inspired pixel-art presentation matching the light theme.
  */
 
@@ -14,7 +14,7 @@ const PILLARS = [
   {
     icon: '⚡',
     title: 'EXPLAINABLE INTELLIGENCE',
-    desc: 'No black-box mystery scores. HackMatrix provides clear cryptographic indicators, TLS certificate signatures, and raw heuristic signals.',
+    desc: 'No black-box mystery scores. Raven provides clear cryptographic indicators, TLS certificate signatures, and raw heuristic signals.',
   },
   {
     icon: '🌐',
@@ -89,7 +89,7 @@ export default function About() {
               marginBottom: '1rem',
             }}
           >
-            ABOUT HACKMATRIX &amp;<br />
+            ABOUT RAVEN &amp;<br />
             <span style={{ color: '#3a7a3a' }}>THE CYBER DEFENSE GRID</span>
           </h2>
 
@@ -103,7 +103,7 @@ export default function About() {
               margin: '0 auto',
             }}
           >
-            HackMatrix was conceived to make digital investigation transparent, swift, and engaging.
+            Raven was conceived to make digital investigation transparent, swift, and engaging.
             Inspired by voxel worlds and retro computing, our mission is to defend every explorer of the web.
           </p>
         </div>

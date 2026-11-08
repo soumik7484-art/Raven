@@ -1,5 +1,5 @@
 /**
- * Footer — HackMatrix
+ * Footer — Raven
  *
  * Minecraft-inspired dark footer with pixel typography and block-style elements.
  */
@@ -76,7 +76,7 @@ export default function Footer() {
                   letterSpacing: '0.03em',
                 }}
               >
-                HackMatrix
+                Raven
               </span>
             </div>
             <p
@@ -223,7 +223,7 @@ export default function Footer() {
               color: '#4a6a4a',
             }}
           >
-            © 2026 HackMatrix. All rights reserved. Built with{' '}
+            © 2026 Raven. All rights reserved. Built with{' '}
             <span style={{ color: '#e06060' }}>♥</span> for digital security.
           </p>
 

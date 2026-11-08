@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * CyberHeroAnimation — HackMatrix
+ * CyberHeroAnimation — Raven
  *
  * Polished 3D Minecraft-inspired cybersecurity animation.
  * Features 3D voxel characters: Hacker typing at laptop, Blue Protector defending with shield,

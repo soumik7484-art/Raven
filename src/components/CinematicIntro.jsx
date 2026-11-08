@@ -1,11 +1,11 @@
 import { useRef, useEffect } from 'react'
 
 /**
- * CinematicIntro — HackMatrix
+ * CinematicIntro — Raven
  *
  * Full-screen edge-to-edge cinematic video introduction.
  * The video fills 100vw × 100vh with no white bars or separate sections.
- * The 'ENTER HACKMATRIX →' button floats directly over the video near the bottom.
+ * The 'ENTER RAVEN →' button floats directly over the video near the bottom.
  */
 export default function CinematicIntro({ onEnter }) {
   const videoRef = useRef(null)
@@ -91,8 +91,8 @@ export default function CinematicIntro({ onEnter }) {
         <button
           type="button"
           onClick={onEnter}
-          className="enter-hackmatrix-btn"
-          aria-label="Enter HackMatrix"
+          className="enter-raven-btn"
+          aria-label="Enter Raven"
           style={{
             pointerEvents: 'auto',
             display: 'inline-flex',
@@ -136,7 +136,7 @@ export default function CinematicIntro({ onEnter }) {
             e.currentTarget.style.transform = 'scale(1.03) translateY(-1px)'
           }}
         >
-          ENTER HACKMATRIX →
+          ENTER RAVEN →
         </button>
       </div>
 
@@ -147,7 +147,7 @@ export default function CinematicIntro({ onEnter }) {
           }
         }
         @media (max-width: 600px) {
-          .enter-hackmatrix-btn {
+          .enter-raven-btn {
             width: 100% !important;
             max-width: 320px !important;
             padding: 14px 22px !important;

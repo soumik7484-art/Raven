@@ -2,7 +2,7 @@ import { useState } from 'react'
 import SecurityWarrior from './SecurityWarrior'
 
 /**
- * RepoReport — HackMatrix GitHub Repository Security Health Report
+ * RepoReport — Raven GitHub Repository Security Health Report
  * Integrates the Three-State Warrior Reaction System.
  */
 

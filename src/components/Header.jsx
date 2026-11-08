@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 /**
- * Header — HackMatrix
+ * Header — Raven
  *
  * Sticky frosted-glass nav:
  *   Left:   Pixel-art logomark + wordmark (click to scroll to top)
@@ -61,7 +61,7 @@ export default function Header() {
           <a
             href="#home"
             onClick={scrollToHome}
-            aria-label="HackMatrix home"
+            aria-label="Raven home"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -71,20 +71,28 @@ export default function Header() {
               cursor: 'pointer',
             }}
           >
-            <PixelLogoMark />
-            <span
+            <img
+              src="/assets/reven-emblem-new.jpg"
+              alt="Reven Logo"
               style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '0.95rem',
-                fontWeight: 800,
-                letterSpacing: '0.02em',
-                color: 'var(--color-charcoal)',
-                lineHeight: 1,
-                whiteSpace: 'nowrap',
+                height: '56px',
+                width: 'auto',
+                objectFit: 'contain',
+                display: 'block',
+                mixBlendMode: 'multiply',
               }}
-            >
-              Hack<span style={{ color: 'var(--color-forest)' }}>Matrix</span>
-            </span>
+            />
+            <img
+              src="/assets/reven-wordmark.jpg"
+              alt="REVEN"
+              style={{
+                height: '36px',
+                width: 'auto',
+                objectFit: 'contain',
+                display: 'block',
+                mixBlendMode: 'multiply',
+              }}
+            />
           </a>
 
           {/* ── Desktop Nav (Hidden below 1200px to guarantee ample spacing and zero collision) ── */}

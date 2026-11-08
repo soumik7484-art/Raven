@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import CyberHeroAnimation from './CyberHeroAnimation'
 
 /**
- * Hero — HackMatrix
+ * Hero — Raven
  *
  * Split layout:
  *   Left  — headline, description, CTAs, trust badges

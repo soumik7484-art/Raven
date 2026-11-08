@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="HackMatrix / TRUSTLENS Security Engine API",
+    title="Raven / TRUSTLENS Security Engine API",
     description="Backend API for Website Investigation & GitHub Repository Security Health Checks.",
     version="1.0.0",
     lifespan=lifespan
@@ -333,4 +333,4 @@ async def get_website_scan(scan_id: str):
 
 @app.get("/api/health", tags=["System Health"])
 async def health_check():
-    return {"status": "ok", "service": "HackMatrix Unified Security Service"}
+    return {"status": "ok", "service": "Raven Unified Security Service"}
