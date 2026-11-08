@@ -38,6 +38,9 @@ async function request(endpoint, options = {}) {
     clearTimeout(timeout)
 
     if (!response.ok) {
+      if (response.status === 503) {
+        throw new ApiError('Backend service disconnected', 'UNAVAILABLE', 503)
+      }
       if (response.status === 404) {
         throw new ApiError('Resource not found', 'NOT_FOUND', 404)
       }

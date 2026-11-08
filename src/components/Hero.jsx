@@ -120,7 +120,7 @@ export default function Hero() {
             }} />
             <span style={{
               fontFamily: 'var(--font-pixel)',
-              fontSize: '1rem',
+              fontSize: 'clamp(0.65rem, 1.8vw, 0.82rem)',
               color: 'var(--color-forest-dark)',
               letterSpacing: '0.04em',
             }}>
@@ -133,7 +133,7 @@ export default function Hero() {
             id="hero-heading"
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(2.4rem, 4.5vw, 3.75rem)',
+              fontSize: 'clamp(1.85rem, 4.2vw, 3.6rem)',
               fontWeight: 800,
               letterSpacing: '-0.04em',
               lineHeight: 1.06,

@@ -4,6 +4,7 @@ import Header from './components/Header'
 import Hero from './components/Hero'
 import HowItWorks from './components/HowItWorks'
 import Scanner from './components/Scanner'
+import RepoScanner from './components/RepoScanner'
 import ThreatIntel from './components/ThreatIntel'
 import About from './components/About'
 import Footer from './components/Footer'
@@ -62,6 +63,7 @@ export default function App() {
         <Hero />
         <HowItWorks />
         <Scanner />
+        <RepoScanner />
         <ThreatIntel />
         <About />
       </main>

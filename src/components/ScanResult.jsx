@@ -159,8 +159,8 @@ function UnavailableView({ onRetry, onReset }) {
       iconColor="#c8952a"
       bgColor="rgba(30,25,15,0.85)"
       borderColor="#5a4a2a"
-      title="Website Scanning Unavailable"
-      message="The security investigation backend is currently offline or unreachable. Please try again in a few moments, or check our status page for updates."
+      title="Website Scanner Backend Disconnected"
+      message="The website security investigation backend is currently offline. No fabricated scores or fake reports are generated. The GitHub Repository Security Health Check is active below."
       details={[
         'Backend service is temporarily unavailable',
         'Network connectivity issue detected',
