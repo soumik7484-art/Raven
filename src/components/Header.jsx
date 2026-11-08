@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 /**
- * Header — Raven
+ * Header � Raven
  *
  * Sticky frosted-glass nav:
  *   Left:   Pixel-art logomark + wordmark (click to scroll to top)
@@ -57,7 +57,7 @@ export default function Header() {
             boxSizing: 'border-box',
           }}
         >
-          {/* ── Logo ── */}
+          {/* -- Logo -- */}
           <a
             href="#home"
             onClick={scrollToHome}
@@ -72,8 +72,8 @@ export default function Header() {
             }}
           >
             <img
-              src="/assets/reven-emblem-new.jpg"
-              alt="Reven Logo"
+              src="/assets/raven-emblem-new.jpg"
+              alt="Raven Logo"
               style={{
                 height: '56px',
                 width: 'auto',
@@ -83,8 +83,8 @@ export default function Header() {
               }}
             />
             <img
-              src="/assets/reven-wordmark.jpg"
-              alt="REVEN"
+              src="/assets/raven-wordmark-new.jpg"
+              alt="RAVEN"
               style={{
                 height: '36px',
                 width: 'auto',
@@ -95,7 +95,7 @@ export default function Header() {
             />
           </a>
 
-          {/* ── Desktop Nav (Hidden below 1200px to guarantee ample spacing and zero collision) ── */}
+          {/* -- Desktop Nav (Hidden below 1200px to guarantee ample spacing and zero collision) -- */}
           <nav
             aria-label="Main navigation"
             className="header-desktop-nav"
@@ -114,7 +114,7 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* ── Right Actions: CTA + Hamburger ── */}
+          {/* -- Right Actions: CTA + Hamburger -- */}
           <div
             style={{
               display: 'flex',
@@ -194,7 +194,7 @@ export default function Header() {
         </div>
       </header>
 
-      {/* ── Mobile & Tablet Drawer (Full Screen / Smooth Slide) ── */}
+      {/* -- Mobile & Tablet Drawer (Full Screen / Smooth Slide) -- */}
       {open && (
         <div
           role="dialog"
@@ -282,7 +282,7 @@ export default function Header() {
                 }}
               >
                 <span>{link.label}</span>
-                <span style={{ color: 'var(--color-forest)', fontSize: '0.8rem' }}>▶</span>
+                <span style={{ color: 'var(--color-forest)', fontSize: '0.8rem' }}>?</span>
               </a>
             ))}
 
@@ -310,7 +310,7 @@ export default function Header() {
                   letterSpacing: '0.04em',
                 }}
               >
-                <span>■ CHECK REPOSITORY</span>
+                <span>� CHECK REPOSITORY</span>
               </a>
 
               <a
@@ -335,14 +335,14 @@ export default function Header() {
                   letterSpacing: '0.04em',
                 }}
               >
-                <span>▶ CHECK WEBSITE</span>
+                <span>? CHECK WEBSITE</span>
               </a>
             </div>
           </nav>
         </div>
       )}
 
-      {/* ── Precise Responsive Breakpoints ── */}
+      {/* -- Precise Responsive Breakpoints -- */}
       <style>{`
         @media (max-width: 1200px) {
           .header-desktop-nav {
@@ -370,7 +370,7 @@ export default function Header() {
   )
 }
 
-/* ── Desktop Nav Link with Compact, Balanced Spacing ── */
+/* -- Desktop Nav Link with Compact, Balanced Spacing -- */
 function NavLink({ href, label }) {
   const handleClick = (e) => {
     if (href === '#home') {
@@ -414,7 +414,7 @@ function NavLink({ href, label }) {
   )
 }
 
-/* ── Pixel-Art Block Logomark ── */
+/* -- Pixel-Art Block Logomark -- */
 function PixelLogoMark() {
   return (
     <svg

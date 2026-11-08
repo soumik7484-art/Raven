@@ -5,34 +5,58 @@ import { useRef, useEffect } from 'react'
  *
  * Full-screen edge-to-edge cinematic video introduction.
  * The video fills 100vw × 100vh with no white bars or separate sections.
+ * The top-left corner features the animated transparent REVEN logo.
  * The 'ENTER RAVEN →' button floats directly over the video near the bottom.
  */
 export default function CinematicIntro({ onEnter }) {
   const videoRef = useRef(null)
+  const logoVideoRef = useRef(null)
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video) return
-
-    video.muted = true
-    video.defaultMuted = true
-    video.volume = 0
-    video.playsInline = true
-    video.loop = true
-    video.setAttribute('muted', '')
-    video.setAttribute('playsinline', '')
-    video.setAttribute('webkit-playsinline', '')
-    video.setAttribute('loop', '')
-    video.onvolumechange = () => {
+    if (video) {
       video.muted = true
+      video.defaultMuted = true
       video.volume = 0
+      video.playsInline = true
+      video.loop = true
+      video.setAttribute('muted', '')
+      video.setAttribute('playsinline', '')
+      video.setAttribute('webkit-playsinline', '')
+      video.setAttribute('loop', '')
+      video.onvolumechange = () => {
+        video.muted = true
+        video.volume = 0
+      }
+
+      const playPromise = video.play()
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Autoplay prevented by browser policy:', err)
+        })
+      }
     }
 
-    const playPromise = video.play()
-    if (playPromise !== undefined) {
-      playPromise.catch((err) => {
-        console.warn('Autoplay prevented by browser policy:', err)
-      })
+    const logoVideo = logoVideoRef.current
+    if (logoVideo) {
+      logoVideo.muted = true
+      logoVideo.defaultMuted = true
+      logoVideo.volume = 0
+      logoVideo.playsInline = true
+      logoVideo.loop = true
+      logoVideo.setAttribute('muted', '')
+      logoVideo.setAttribute('playsinline', '')
+      logoVideo.setAttribute('webkit-playsinline', '')
+      logoVideo.setAttribute('loop', '')
+      logoVideo.onvolumechange = () => {
+        logoVideo.muted = true
+        logoVideo.volume = 0
+      }
+
+      const p = logoVideo.play()
+      if (p !== undefined) {
+        p.catch(() => {})
+      }
     }
   }, [])
 
@@ -71,6 +95,46 @@ export default function CinematicIntro({ onEnter }) {
         <source src="/landingpage1.mp4" type="video/mp4" />
         <source src="/landing page.mp4" type="video/mp4" />
       </video>
+
+      {/* ── Top-Left Corner Animated REVEN Logo (Transparent WebM) ── */}
+      <div
+        className="cinematic-logo-overlay"
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: 'clamp(1rem, 2.5vw, 2.25rem)',
+          left: 'clamp(1rem, 2.5vw, 2.5rem)',
+          zIndex: 10,
+          width: 'clamp(200px, 22vw, 340px)',
+          aspectRatio: '854 / 480',
+          pointerEvents: 'none',
+          animation: 'logoFloat 6s ease-in-out infinite',
+          filter: 'drop-shadow(0 10px 25px rgba(0, 0, 0, 0.45))',
+        }}
+      >
+        <video
+          ref={logoVideoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-label="REVEN Logo"
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: 'block',
+          }}
+        >
+          <source src="/videos/reven-transparent.webm" type="video/webm" />
+          <img
+            src="/assets/raven-logo-full.jpg"
+            alt="REVEN"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
+        </video>
+      </div>
 
       {/* ── Button directly on the video near the bottom ── */}
       <div
@@ -141,12 +205,25 @@ export default function CinematicIntro({ onEnter }) {
       </div>
 
       <style>{`
+        @keyframes logoFloat {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
         @supports (height: 100dvh) {
           .cinematic-intro-root {
             height: 100dvh !important;
           }
         }
         @media (max-width: 600px) {
+          .cinematic-logo-overlay {
+            width: min(70vw, 240px) !important;
+            top: 1rem !important;
+            left: 1rem !important;
+          }
           .enter-raven-btn {
             width: 100% !important;
             max-width: 320px !important;
