@@ -95,24 +95,60 @@ const PREVIEW_PAYLOADS = {
     final_risk_report: {
       overall_risk_score: 5,
       risk_category: 'Low Risk',
+      investigation_status: 'VERIFIED SAFE',
+      investigation_coverage: 100,
       explanation: 'This website appears safe and trustworthy to browse under standard security practices.',
+      recommended_action: 'Standard browsing permitted: No anomalous security indicators detected.',
     },
     threat_intelligence: {
       is_threat_confirmed: false,
-      providers_checked: 3,
+      providers_checked: 4,
       providers_malicious_count: 0,
     },
     domain_intelligence: {
       hostname: 'wikipedia.org',
-      ssl_report: { is_valid: true, issuer: 'trusted authority' },
+      dns_report: { status: 'success', a_records: ['208.80.154.224'] },
+      ssl_report: { is_valid: true, status: 'valid', tls_outcome: 'VALID_CERTIFICATE', issuer: 'trusted authority' },
       rdap_report: { status: 'success', domain_age_days: 25 * 365 },
+    },
+    website_assessment: {
+      is_accessible: true,
+      dom_inspection_available: true,
+      inspection_state: 'inspected',
+      content_inspection_state: 'INSPECTED_CLEAN',
+      status_code: 200,
+    },
+  },
+  incomplete: {
+    submitted_url: 'https://unresolvable-nxdomain-target.xyz/',
+    scan_id: '4c7d21a9-9941-4c12-9a01',
+    timestamp: new Date().toISOString(),
+    final_risk_report: {
+      overall_risk_score: null,
+      risk_category: 'Incomplete',
+      investigation_status: 'INVESTIGATION INCOMPLETE',
+      investigation_coverage: 40,
+      explanation: 'Critical investigation modules (DNS, Content) failed or timed out. Safety cannot be verified.',
+      recommended_action: 'Retry investigation: Check destination connectivity and re-run scan.',
+      failed_checks: [
+        { module: 'dns', status: 'failed', description: 'DNS check failed (NXDOMAIN / domain does not exist).' },
+        { module: 'content', status: 'unavailable', description: 'Content inspection unavailable: Domain could not be resolved via DNS.' }
+      ]
+    },
+    threat_intelligence: {
+      is_threat_confirmed: false,
+      providers_checked: 4,
+      providers_malicious_count: 0,
+    },
+    domain_intelligence: {
+      hostname: 'unresolvable-nxdomain-target.xyz',
+      dns_report: { status: 'nxdomain', error_message: 'Host unresolvable (NXDOMAIN)' },
+      ssl_report: { status: 'connection_failed', tls_outcome: 'TLS_UNAVAILABLE_OR_TIMEOUT' },
     },
     website_assessment: {
       is_accessible: false,
       dom_inspection_available: false,
-      inspection_state: 'blocked',
-      status_code: 403,
-      fetch_error: 'HTTP 403 Access Denied / Blocked',
+      content_inspection_state: 'INSPECTION_UNAVAILABLE',
     },
   },
   suspicious: {
@@ -183,7 +219,7 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
   const effectiveData = previewOverride && previewOverride !== 'loading' ? PREVIEW_PAYLOADS[previewOverride] : data
   const effectiveState = previewOverride ? (previewOverride === 'loading' ? 'loading' : 'success') : state
 
-  // Parse result classification to select matching theme (Safe, Suspicious, Malicious, Loading)
+  // Parse result classification to select matching theme (Safe, Suspicious, Malicious, Incomplete, Loading)
   const themeKey = useMemo(() => {
     if (effectiveState === 'loading') return 'loading'
     if (!effectiveData) return 'safe'
@@ -191,15 +227,39 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
     const d = effectiveData
     const finalRisk = d.final_risk_report || {}
     const ti = d.threat_intelligence || {}
-    const rawCat = String(finalRisk.risk_category || d.risk_category || d.classification || '').toLowerCase()
-    const riskScore = typeof finalRisk.overall_risk_score === 'number' ? finalRisk.overall_risk_score : (typeof d.risk_score === 'number' ? d.risk_score : 0)
+    const invStatus = String(finalRisk.investigation_status || '').toUpperCase()
 
-    if (ti.is_threat_confirmed || rawCat.includes('critical') || rawCat.includes('malicious') || riskScore >= 75) {
+    // 1. Authoritative backend investigation status
+    if (invStatus === 'MALICIOUS') return 'malicious'
+    if (invStatus === 'SUSPICIOUS') return 'suspicious'
+    if (invStatus === 'INVESTIGATION INCOMPLETE') return 'incomplete'
+    if (invStatus === 'UNVERIFIED') return 'unverified'
+    if (invStatus === 'VERIFIED SAFE') return 'safe'
+
+    // 2. Fallback risk indicators and confirmed threat floors
+    const rawCat = String(finalRisk.risk_category || d.risk_category || d.classification || '').toLowerCase()
+    const hasScore = typeof finalRisk.overall_risk_score === 'number' && finalRisk.overall_risk_score !== null
+    const riskScore = hasScore ? finalRisk.overall_risk_score : (typeof d.risk_score === 'number' ? d.risk_score : null)
+
+    if (ti.is_threat_confirmed || rawCat.includes('critical') || rawCat.includes('malicious') || (riskScore !== null && riskScore >= 75)) {
       return 'malicious'
     }
-    if (rawCat.includes('high') || rawCat.includes('mod') || rawCat.includes('suspicious') || riskScore >= 25) {
+    if (rawCat.includes('high') || rawCat.includes('mod') || rawCat.includes('suspicious') || (riskScore !== null && riskScore >= 25)) {
       return 'suspicious'
     }
+
+    // 3. Telemetry check failures: Never default to safe if critical checks failed
+    const dom = d.domain_intelligence || {}
+    const web = d.website_assessment || {}
+    const dnsStatus = String(dom.dns_report?.status || '').toLowerCase()
+    const isDomUnavailable = web.dom_inspection_available === false || web.is_accessible === false
+    const ssl = dom.ssl_report || {}
+    const isSslUnavailable = ssl.tls_outcome === 'TLS_UNAVAILABLE_OR_TIMEOUT' || ssl.status === 'connection_failed'
+
+    if (dnsStatus === 'nxdomain' || dnsStatus === 'timeout' || isDomUnavailable || isSslUnavailable) {
+      return 'incomplete'
+    }
+
     return 'safe'
   }, [effectiveState, effectiveData])
 
@@ -460,16 +520,12 @@ function CleanDossierContent({
   }
 
   const finalRisk = data?.final_risk_report || {}
-  const hasOverallRisk = typeof finalRisk.overall_risk_score === 'number'
-  let riskScore = 0
+  const hasOverallRisk = typeof finalRisk.overall_risk_score === 'number' && finalRisk.overall_risk_score !== null
+  let riskScore = null
   if (hasOverallRisk) {
     riskScore = Math.max(0, Math.min(100, Math.round(finalRisk.overall_risk_score)))
-  } else if (typeof data?.risk_score === 'number') {
+  } else if (typeof data?.risk_score === 'number' && data.risk_score !== null) {
     riskScore = Math.max(0, Math.min(100, Math.round(data.risk_score)))
-  } else if (typeof data?.health_score === 'number') {
-    riskScore = Math.max(0, Math.min(100, Math.round(100 - data.health_score)))
-  } else if (typeof data?.score === 'number') {
-    riskScore = Math.max(0, Math.min(100, Math.round(100 - data.score)))
   }
 
   const ti = data?.threat_intelligence || {}
@@ -489,45 +545,65 @@ function CleanDossierContent({
     missingChecks = [],
   } = incidentReport || {}
 
+  const invStatus = String(finalRisk.investigation_status || (incidentReport?.isIncomplete ? 'INVESTIGATION INCOMPLETE' : 'VERIFIED SAFE')).toUpperCase()
+
   // Risk Category & Summary
   const { category, categoryLabel, categoryColor, categoryBg, scoreSummary } = useMemo(() => {
     const rawCat = String(finalRisk.risk_category || '').toLowerCase()
 
-    if (isConfirmedThreat || rawCat.includes('critical') || riskScore >= 75) {
+    if (invStatus === 'MALICIOUS' || isConfirmedThreat || rawCat.includes('critical') || (riskScore !== null && riskScore >= 75)) {
       return {
         category: 'CRITICAL',
-        categoryLabel: 'CRITICAL RISK',
+        categoryLabel: 'MALICIOUS THREAT',
         categoryColor: '#cc2222',
         categoryBg: '#fff0f0',
-        scoreSummary: 'Severe security risk detected. Access should be blocked to prevent potential compromise.',
+        scoreSummary: finalRisk.explanation || 'Severe security risk detected. Access should be blocked to prevent potential compromise.',
       }
     }
-    if (rawCat.includes('high') || riskScore >= 50) {
+    if (invStatus === 'SUSPICIOUS' || rawCat.includes('high') || (riskScore !== null && riskScore >= 50)) {
       return {
         category: 'HIGH',
         categoryLabel: 'HIGH RISK',
         categoryColor: '#e67e22',
         categoryBg: '#fff6ed',
-        scoreSummary: 'High probability of malicious intent. Do not enter passwords or confidential details.',
+        scoreSummary: finalRisk.explanation || 'High probability of malicious intent. Do not enter passwords or confidential details.',
       }
     }
-    if (rawCat.includes('mod') || rawCat.includes('med') || riskScore >= 25) {
+    if (invStatus === 'SUSPICIOUS' || rawCat.includes('mod') || rawCat.includes('med') || (riskScore !== null && riskScore >= 25)) {
       return {
         category: 'MEDIUM',
         categoryLabel: 'MODERATE RISK',
         categoryColor: '#c8952a',
         categoryBg: '#fffbf0',
-        scoreSummary: 'Moderate security warnings identified. Exercise caution before interacting with this page.',
+        scoreSummary: finalRisk.explanation || 'Moderate security warnings identified. Exercise caution before interacting with this page.',
+      }
+    }
+    if (invStatus === 'INVESTIGATION INCOMPLETE' || isIncomplete) {
+      return {
+        category: 'INCOMPLETE',
+        categoryLabel: 'INVESTIGATION INCOMPLETE',
+        categoryColor: '#c97e00',
+        categoryBg: '#fffdf0',
+        scoreSummary: finalRisk.explanation || 'Critical investigation modules were unavailable or timed out. Target safety could not be verified.',
+      }
+    }
+    if (invStatus === 'UNVERIFIED') {
+      return {
+        category: 'UNVERIFIED',
+        categoryLabel: 'UNVERIFIED',
+        categoryColor: '#8a6d3b',
+        categoryBg: '#faf8f2',
+        scoreSummary: finalRisk.explanation || 'Insufficient network telemetry available to analyze this destination.',
       }
     }
     return {
       category: 'LOW',
-      categoryLabel: 'LOW RISK',
+      categoryLabel: 'VERIFIED SAFE',
       categoryColor: '#3a7a3a',
       categoryBg: '#f0f9f0',
-      scoreSummary: 'This website appears safe and trustworthy to browse under standard security practices.',
+      scoreSummary: finalRisk.explanation || 'All investigation checks completed with zero malicious indicators detected.',
     }
-  }, [finalRisk.risk_category, isConfirmedThreat, riskScore])
+  }, [invStatus, finalRisk.risk_category, finalRisk.explanation, isConfirmedThreat, riskScore, isIncomplete])
 
   // Concise 2–4 reasons behind the score
   const reasons = useMemo(() => {
@@ -636,19 +712,41 @@ function CleanDossierContent({
     } else if (!isConfirmedThreat && (!ti.providers_malicious_count || ti.providers_malicious_count === 0)) {
       if (ti.providers_checked > 0) {
         list.push({
-          type: 'success',
-          icon: '✔',
-          title: 'Clean Threat Reputation',
-          text: `Verified against ${ti.providers_checked} major security threat databases with zero blacklist flags.`,
-        })
-      } else {
-        list.push({
-          type: 'success',
-          icon: '✔',
-          title: 'No Blacklist Records Found',
-          text: 'The website is not currently listed on any active cybersecurity threat registries.',
+          type: 'info',
+          icon: 'ℹ',
+          title: 'No Known Blacklist Detections',
+          text: `Checked ${ti.providers_checked} major security threat databases with zero blacklist flags (Note: absence of blacklist records does not prove safety).`,
         })
       }
+    }
+
+    // DNS Check Telemetry
+    const dnsStatus = String(dom.dns_report?.status || '').toLowerCase()
+    const dnsErrMsg = dom.dns_report?.error_message || ''
+    if (dnsStatus === 'nxdomain' || dnsErrMsg.toLowerCase().includes('nxdomain')) {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'DNS Check Failed (NXDOMAIN)',
+        text: 'The hostname could not be resolved to any active IP address. The domain does not exist or has no active DNS zone.',
+      })
+    } else if (dnsStatus === 'timeout' || dnsErrMsg.toLowerCase().includes('timeout')) {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'DNS Check Unavailable',
+        text: 'DNS resolution timed out before receiving records from authoritative nameservers.',
+      })
+    }
+
+    // SSL Verification Telemetry
+    if (ssl.tls_outcome === 'TLS_UNAVAILABLE_OR_TIMEOUT' || ssl.status === 'connection_failed') {
+      list.push({
+        type: 'warning',
+        icon: '⚠',
+        title: 'SSL Verification Unavailable',
+        text: 'Secure TLS connection timed out or failed to connect on port 443.',
+      })
     }
 
     if (ssl && ssl.is_valid === true) {
@@ -716,6 +814,15 @@ function CleanDossierContent({
           text: expl,
         })
       }
+    }
+
+    if (invStatus === 'INVESTIGATION INCOMPLETE' || invStatus === 'UNVERIFIED' || isIncomplete) {
+      list.push({
+        type: 'info',
+        icon: 'ℹ',
+        title: 'Recommended Action',
+        text: finalRisk.recommended_action || 'Retry the investigation to re-run unverified telemetry checks.',
+      })
     }
 
     if (category === 'CRITICAL' || category === 'HIGH' || category === 'MEDIUM') {
@@ -857,7 +964,7 @@ function CleanDossierContent({
                 fontWeight: 400,
               }}
             >
-              {riskScore}
+              {riskScore !== null && riskScore !== undefined ? riskScore : '--'}
             </span>
             <span
               style={{
@@ -903,6 +1010,43 @@ function CleanDossierContent({
             >
               {categoryLabel}
             </span>
+          </div>
+
+          {/* Investigation Coverage Indicator (Requirement 6) */}
+          <div
+            style={{
+              marginTop: '12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '4px 12px',
+              backgroundColor: '#f5f7f4',
+              border: '1px solid #d5ddd3',
+              borderRadius: '3px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.72rem',
+              color: '#444',
+            }}
+          >
+            <span style={{ color: '#777', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              INVESTIGATION COVERAGE:
+            </span>
+            <strong
+              style={{
+                color:
+                  (finalRisk.investigation_coverage ?? (isIncomplete ? 60 : 100)) >= 80
+                    ? '#2b772b'
+                    : (finalRisk.investigation_coverage ?? (isIncomplete ? 60 : 100)) >= 50
+                    ? '#c97e00'
+                    : '#cc2222',
+              }}
+            >
+              {finalRisk.investigation_coverage !== undefined && finalRisk.investigation_coverage !== null
+                ? `${finalRisk.investigation_coverage}%`
+                : isIncomplete
+                ? '60%'
+                : '100%'}
+            </strong>
           </div>
         </div>
 
@@ -1099,59 +1243,115 @@ function CleanDossierContent({
 
           {/* Incidents List or Clean Zero-Incidents Banner */}
           {incidents.length === 0 ? (
-            <div
-              style={{
-                padding: '16px 18px',
-                backgroundColor: '#f4fbf4',
-                border: '1px solid #a8d5a8',
-                borderLeft: '4px solid #3a7a3a',
-                borderRadius: '3px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-              }}
-            >
-              <span
+            isIncomplete ? (
+              <div
                 style={{
-                  display: 'inline-flex',
+                  padding: '16px 18px',
+                  backgroundColor: '#fffdf4',
+                  border: '1px solid #d4b106',
+                  borderLeft: '4px solid #c97e00',
+                  borderRadius: '3px',
+                  display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '2px',
-                  backgroundColor: '#3a7a3a',
-                  color: '#fff',
-                  fontSize: '0.82rem',
-                  fontWeight: 800,
-                  flexShrink: 0,
+                  gap: '14px',
                 }}
               >
-                ✔
-              </span>
-              <div>
-                <div
+                <span
                   style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    fontSize: '0.84rem',
-                    color: '#2a5a2a',
-                    marginBottom: '3px',
-                  }}
-                >
-                  NO CONFIRMED SECURITY INCIDENTS DETECTED
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--font-body)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '2px',
+                    backgroundColor: '#c97e00',
+                    color: '#fff',
                     fontSize: '0.82rem',
-                    color: '#446644',
-                    lineHeight: 1.5,
+                    fontWeight: 800,
+                    flexShrink: 0,
                   }}
                 >
-                  No active threat intelligence blacklist records, deceptive credential forms, brand spoofing, or invalid TLS certificates were found.
+                  ⚠
+                </span>
+                <div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 700,
+                      fontSize: '0.84rem',
+                      color: '#824c00',
+                      marginBottom: '3px',
+                    }}
+                  >
+                    TELEMETRY INCOMPLETE — NO INCIDENTS IN AVAILABLE CHECKS
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.82rem',
+                      color: '#614700',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    No blacklist flags were identified, but critical checks (such as DNS, TLS, or webpage inspection) were unavailable or timed out. Safety cannot be verified without complete telemetry.
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div
+                style={{
+                  padding: '16px 18px',
+                  backgroundColor: '#f4fbf4',
+                  border: '1px solid #a8d5a8',
+                  borderLeft: '4px solid #3a7a3a',
+                  borderRadius: '3px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '2px',
+                    backgroundColor: '#3a7a3a',
+                    color: '#fff',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    flexShrink: 0,
+                  }}
+                >
+                  ✔
+                </span>
+                <div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 700,
+                      fontSize: '0.84rem',
+                      color: '#2a5a2a',
+                      marginBottom: '3px',
+                    }}
+                  >
+                    NO CONFIRMED SECURITY INCIDENTS DETECTED
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.82rem',
+                      color: '#446644',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    No active threat intelligence blacklist records, deceptive credential forms, brand spoofing, or invalid TLS certificates were found.
+                  </div>
+                </div>
+              </div>
+            )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {incidents.map((incident) => {
@@ -1451,6 +1651,22 @@ function CleanDossierContent({
                 }}
               >
                 High Risk
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectPreview('incomplete')}
+                style={{
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.58rem',
+                  padding: '3px 7px',
+                  backgroundColor: previewOverride === 'incomplete' ? '#c97e00' : '#fff',
+                  color: previewOverride === 'incomplete' ? '#fff' : '#c97e00',
+                  border: '1px solid #c97e00',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                }}
+              >
+                Incomplete
               </button>
               <button
                 type="button"

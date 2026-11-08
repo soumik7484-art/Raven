@@ -11,6 +11,7 @@
  * - TLS timeouts/unreachability are categorized as UNKNOWN/unavailable, NEVER as certificate failures.
  * - Uninspected executable/archive links are observations, NOT independent high/critical malware incidents.
  * - Deduplicates multi-scanner reports while preserving all attributing sources.
+ * - Accurately reflects failed and unavailable telemetry (DNS, TLS, Content inspection).
  */
 
 export function extractIncidents(data) {
@@ -21,6 +22,8 @@ export function extractIncidents(data) {
       observations: [],
       isIncomplete: false,
       missingChecks: [],
+      investigationStatus: 'UNVERIFIED',
+      investigationCoverage: 0,
     }
   }
 
@@ -32,12 +35,40 @@ export function extractIncidents(data) {
   const domainIntel = data.domain_intelligence || {}
   const threatIntel = data.threat_intelligence || {}
   const webAssess = data.website_assessment || {}
+  const finalRisk = data.final_risk_report || {}
   const hostname = domainIntel.hostname || ''
 
   // ── 1. Check for Incomplete / Degraded Intelligence Feeds ──
+  // DNS Check
+  const dnsReport = domainIntel.dns_report || {}
+  const dnsStatus = String(dnsReport.status || '').toLowerCase()
+  const valInfo = data.validation || {}
+  const isResolvable = valInfo.is_resolvable
+  const dnsError = dnsReport.error_message || valInfo.dns_error || ''
+
+  if (dnsStatus === 'nxdomain' || dnsError.toLowerCase().includes('nxdomain')) {
+    missingChecks.push('DNS resolution failed (host unresolvable / NXDOMAIN)')
+    rawIncidents.push({
+      id: 'dns-nxdomain',
+      title: 'DNS Resolution Failed (Domain Non-Existent)',
+      severity: 'MEDIUM',
+      status: 'UNVERIFIED',
+      description: 'The target hostname could not be resolved to any active IP address (NXDOMAIN). The domain does not exist or has no active DNS zone.',
+      sources: ['DNS Intelligence Engine'],
+      affected_asset: hostname || submittedUrl,
+    })
+  } else if (dnsStatus === 'timeout' || dnsError.toLowerCase().includes('timeout')) {
+    missingChecks.push('DNS resolution unavailable (query timed out)')
+  } else if (dnsStatus === 'error' || isResolvable === false) {
+    missingChecks.push(`DNS resolution failed (${dnsError || 'unresolvable'})`)
+  }
+
+  // Threat Intel Check
   if (threatIntel.providers_checked === 0) {
     missingChecks.push('Threat intelligence feeds (unconfigured or offline)')
   }
+
+  // DOM Content Check
   const contentState = webAssess.content_inspection_state
   const isDomUnavailable = Boolean(
     webAssess.dom_inspection_available === false ||
@@ -51,6 +82,14 @@ export function extractIncidents(data) {
     const errDetail = webAssess.fetch_error || (webAssess.status_code ? `HTTP ${webAssess.status_code}` : webAssess.inspection_state || 'connection unavailable or timed out')
     missingChecks.push(`Webpage DOM content inspection (${errDetail})`)
   }
+
+  // Include any backend failed check messages
+  const backendFailed = Array.isArray(finalRisk.failed_checks) ? finalRisk.failed_checks : []
+  backendFailed.forEach((fc) => {
+    if (fc && fc.description && !missingChecks.includes(fc.description)) {
+      missingChecks.push(fc.description)
+    }
+  })
 
   // ── 2. Threat Intelligence Incidents ──
   const isThreatConfirmed = Boolean(threatIntel.is_threat_confirmed)
@@ -155,7 +194,6 @@ export function extractIncidents(data) {
       })
     } else if (formAnalysis.has_external_form_action) {
       // Ordinary non-credential external submission (e.g. newsletter, search)
-      // Must NOT inflate security incident counts! Recorded as informational observation.
       observations.push({
         id: 'obs-form-external-handler',
         title: 'Cross-Domain Form Endpoint (Non-Credential)',
@@ -181,8 +219,6 @@ export function extractIncidents(data) {
   const execLinks = Array.isArray(webAssess.executable_links) ? webAssess.executable_links : []
   if (execLinks.length > 0) {
     if (isMalware) {
-      // Discovered download links are part of the confirmed malware campaign.
-      // Do not create a duplicate independent HIGH incident.
       observations.push({
         id: 'obs-malware-payload-link',
         title: 'Associated Downloadable Payload Link',
@@ -190,8 +226,6 @@ export function extractIncidents(data) {
         asset: execLinks[0],
       })
     } else {
-      // Uninspected software download (e.g. python.org installer link)
-      // An uninspected link alone is an observation, not proof of malware.
       observations.push({
         id: 'obs-download-link-uninspected',
         title: 'Downloadable File Link Discovered (Uninspected)',
@@ -233,7 +267,6 @@ export function extractIncidents(data) {
       affected_asset: hostname || submittedUrl,
     })
   } else if (tlsOutcome === 'HTTPS_NOT_USED' || (isHttpUrl && tlsOutcome !== 'VALID_CERTIFICATE')) {
-    // Missing encryption, NEVER mislabeled as an expired or invalid certificate
     rawIncidents.push({
       id: 'transport-unencrypted-http',
       title: 'Missing HTTPS Encryption (HTTP Transport)',
@@ -256,8 +289,6 @@ export function extractIncidents(data) {
       })
     }
   } else if (tlsOutcome === 'TLS_UNAVAILABLE_OR_TIMEOUT') {
-    // Unknown certificate status due to connection failure or timeout.
-    // NOT a certificate failure incident!
     missingChecks.push('TLS certificate verification (connection unavailable or timed out)')
   } else if (tlsOutcome === 'TLS_INSPECTION_ERROR') {
     missingChecks.push('TLS inspection (internal check error)')
@@ -322,7 +353,18 @@ export function extractIncidents(data) {
     low: incidents.filter((i) => i.severity === 'LOW').length,
   }
 
-  const isIncomplete = missingChecks.length > 0 && !isThreatConfirmed && (data.scan_status === 'incomplete' || isDomUnavailable || threatIntel.providers_checked === 0)
+  const statusFromBackend = finalRisk.investigation_status
+  const isCriticalCheckMissing = Boolean(
+    isDomUnavailable ||
+    dnsStatus === 'nxdomain' ||
+    dnsStatus === 'timeout' ||
+    tlsOutcome === 'TLS_UNAVAILABLE_OR_TIMEOUT'
+  )
+
+  const isIncomplete =
+    statusFromBackend === 'INVESTIGATION INCOMPLETE' ||
+    statusFromBackend === 'UNVERIFIED' ||
+    (!isThreatConfirmed && (data.scan_status === 'incomplete' || isCriticalCheckMissing || missingChecks.length > 0))
 
   return {
     summary,
@@ -330,5 +372,7 @@ export function extractIncidents(data) {
     observations,
     isIncomplete,
     missingChecks,
+    investigationStatus: statusFromBackend || (isIncomplete ? 'INVESTIGATION INCOMPLETE' : 'VERIFIED SAFE'),
+    investigationCoverage: finalRisk.investigation_coverage,
   }
 }
