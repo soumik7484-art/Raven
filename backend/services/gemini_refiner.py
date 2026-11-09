@@ -214,13 +214,25 @@ def synthesize_fallback_refinement(scan_data: Dict[str, Any]) -> GeminiRefinedRe
 
 
 async def _call_gemini_api(url: str, payload: dict) -> dict:
-    """Internal helper to execute the Gemini REST API request."""
-    timeout_cfg = httpx.Timeout(4.0, connect=2.0)
-    async with httpx.AsyncClient(timeout=timeout_cfg) as client:
-        resp = await client.post(url, json=payload)
-        if resp.status_code != 200:
-            raise RuntimeError(f"Gemini API HTTP {resp.status_code}")
-        return resp.json()
+    """Internal helper to execute the Gemini REST API request with resilient retry."""
+    timeout_cfg = httpx.Timeout(7.0, connect=3.0)
+    last_err = None
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=timeout_cfg) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    return resp.json()
+                if resp.status_code in (500, 502, 503, 504) and attempt == 0:
+                    await asyncio.sleep(0.5)
+                    continue
+                raise RuntimeError(f"Gemini API HTTP {resp.status_code}")
+        except Exception as exc:
+            last_err = exc
+            if attempt == 0:
+                await asyncio.sleep(0.5)
+                continue
+            raise last_err
 
 
 async def refine_scan_report(scan_data: Dict[str, Any]) -> Dict[str, Any]:
