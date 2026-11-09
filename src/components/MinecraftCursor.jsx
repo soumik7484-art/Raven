@@ -120,8 +120,8 @@ export default function MinecraftCursor() {
       currentX += (mouseX - currentX) * 0.2;
       currentY += (mouseY - currentY) * 0.2;
 
-      cursor.style.transform = `translate3d(${currentX - 20}px, ${
-        currentY - 23
+      cursor.style.transform = `translate3d(${currentX - 15}px, ${
+        currentY - 17
       }px, 0)`;
 
       animationFrameId = window.requestAnimationFrame(animate);
