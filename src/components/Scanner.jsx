@@ -381,6 +381,7 @@ export default function Scanner() {
                 <button
                   key={url}
                   type="button"
+                  className="scanner-sample-btn"
                   onClick={() => applySample(url)}
                   style={{
                     fontFamily: 'var(--font-mono)',
@@ -474,10 +475,20 @@ export default function Scanner() {
           }
           .scanner-submit-btn {
             width: 100% !important;
-            padding: 14px 20px !important;
+            padding: 13px 18px !important;
             border-left: none !important;
             border-top: 2px solid #2a2a2a !important;
             justify-content: center !important;
+            font-size: 0.72rem !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .scanner-card {
+            box-shadow: 3px 3px 0 #2a2a2a !important;
+          }
+          .scanner-sample-btn {
+            padding: 4px 7px !important;
+            font-size: 0.65rem !important;
           }
         }
         @keyframes spin {

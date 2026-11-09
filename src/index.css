@@ -114,7 +114,22 @@ body {
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: auto;
   image-rendering: pixelated;
+  max-width: 100vw;
   overflow-x: hidden;
+  position: relative;
+}
+
+#root {
+  max-width: 100vw;
+  overflow-x: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -245,9 +260,12 @@ code, kbd, pre, samp {
 /* Section container */
 .section-container {
   max-width: 1200px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
-  padding-left:  clamp(1.25rem, 5vw, 3rem);
-  padding-right: clamp(1.25rem, 5vw, 3rem);
+  padding-left:  clamp(0.875rem, 4vw, 3rem);
+  padding-right: clamp(0.875rem, 4vw, 3rem);
+  min-width: 0;
 }
 
 

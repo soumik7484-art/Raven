@@ -112,7 +112,7 @@ export default function About() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
             gap: '20px',
             marginBottom: '2.5rem',
           }}
@@ -192,7 +192,7 @@ export default function About() {
             gap: '16px',
           }}
         >
-          <div style={{ flex: '1 1 300px', maxWidth: '640px' }}>
+          <div style={{ flex: '1 1 240px', minWidth: 0, maxWidth: '640px' }}>
             <div
               style={{
                 fontFamily: 'var(--font-body)',

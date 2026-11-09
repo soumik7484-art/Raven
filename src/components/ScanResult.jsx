@@ -466,7 +466,7 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             transform: translateY(-8px);
           }
         }
-        @media (min-width: 820px) {
+        @media (min-width: 881px) {
           .cloud-tail-mobile {
             display: none !important;
           }
@@ -474,15 +474,24 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             display: block !important;
           }
         }
-        @media (max-width: 819px) {
+        @media (max-width: 880px) {
           .scan-cloud-layout {
             flex-direction: column !important;
             align-items: center !important;
-            gap: 28px !important;
+            gap: 22px !important;
+            width: 100% !important;
           }
           .scan-character-col {
-            width: 170px !important;
+            width: min(100%, 160px) !important;
             position: static !important;
+            margin: 0 auto !important;
+          }
+          .scan-cloud-bubble {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
           }
           .cloud-tail-desktop {
             display: none !important;
@@ -490,8 +499,37 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
           .cloud-tail-mobile {
             display: block !important;
           }
+        }
+        @media (max-width: 700px) {
           .metrics-tiles-grid {
-            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)) !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 8px !important;
+          }
+        }
+        @media (max-width: 600px) {
+          .scan-bubble-inner-pad {
+            padding: 14px 12px !important;
+          }
+          .scan-score-hero-pad {
+            padding: 18px 12px 16px !important;
+          }
+          .scan-result-footer-actions {
+            flex-direction: column !important;
+            width: 100% !important;
+            gap: 10px !important;
+          }
+          .scan-footer-share-btn,
+          .scan-footer-reset-btn {
+            width: 100% !important;
+            justify-content: center !important;
+            text-align: center !important;
+            padding: 12px 16px !important;
+          }
+        }
+        @media (max-width: 380px) {
+          .metrics-tiles-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 6px !important;
           }
         }
       `}</style>
@@ -919,7 +957,7 @@ function CleanDossierContent({
           gap: '8px',
         }}
       >
-        <div style={{ wordBreak: 'break-all', minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ wordBreak: 'break-all', overflowWrap: 'anywhere', minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
           <span style={{ color: '#888' }}>TARGET:</span>
           <strong style={{ color: '#111' }}>{submittedUrl}</strong>
         </div>
@@ -927,6 +965,7 @@ function CleanDossierContent({
 
       {/* ── 1. SECURITY RISK SCORE HERO ── */}
       <div
+        className="scan-score-hero-pad"
         style={{
           padding: '24px 22px 20px',
           textAlign: 'center',
@@ -1119,7 +1158,7 @@ function CleanDossierContent({
       </div>
 
       {/* ── 2. REASON BEHIND THE SCORE ── */}
-      <div style={{ padding: '22px 22px 18px' }}>
+      <div className="scan-bubble-inner-pad" style={{ padding: '22px 22px 18px' }}>
         <div
           style={{
             display: 'flex',
@@ -1677,7 +1716,7 @@ function CleanDossierContent({
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
                   gap: '12px',
                   marginBottom: '12px',
                 }}
@@ -1934,10 +1973,11 @@ function CleanDossierContent({
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="scan-result-footer-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={() => setShowShareModal(true)}
+                className="scan-footer-share-btn"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -1970,6 +2010,7 @@ function CleanDossierContent({
               <button
                 type="button"
                 onClick={onReset}
+                className="scan-footer-reset-btn"
                 style={{
                   fontFamily: 'var(--font-pixel)',
                   fontSize: '0.7rem',
@@ -2155,7 +2196,7 @@ function LoadingContent({ url, theme }) {
 
 function UnavailableContent({ onRetry, onReset, theme }) {
   return (
-    <div style={{ padding: '28px 22px 28px 112px' }}>
+    <div style={{ padding: 'clamp(20px, 4vw, 32px) clamp(16px, 3.5vw, 24px)' }}>
       <div style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.85rem', color: theme.themeColor, marginBottom: '8px' }}>
         TOO MANY INVESTIGATIONS
       </div>
@@ -2200,7 +2241,7 @@ function UnavailableContent({ onRetry, onReset, theme }) {
 
 function ErrorContent({ error, onRetry, onReset, theme }) {
   return (
-    <div style={{ padding: '28px 22px 28px 112px' }}>
+    <div style={{ padding: 'clamp(20px, 4vw, 32px) clamp(16px, 3.5vw, 24px)' }}>
       <div style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.85rem', color: '#cc2222', marginBottom: '8px' }}>
         INVESTIGATION FAILED
       </div>

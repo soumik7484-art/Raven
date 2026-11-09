@@ -144,7 +144,7 @@ export default function Hero() {
             id="hero-heading"
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(1.85rem, 4.2vw, 3.6rem)',
+              fontSize: 'clamp(1.4rem, 4.5vw, 3.6rem)',
               fontWeight: 800,
               letterSpacing: '-0.04em',
               lineHeight: 1.06,
@@ -160,7 +160,7 @@ export default function Hero() {
           {/* Description */}
           <p style={{
             fontFamily: 'var(--font-body)',
-            fontSize: 'clamp(0.9375rem, 1.8vw, 1.0625rem)',
+            fontSize: 'clamp(0.85rem, 2vw, 1.0625rem)',
             lineHeight: 1.75,
             color: 'var(--color-muted)',
             maxWidth: '480px',
@@ -231,6 +231,21 @@ export default function Hero() {
             width: 100% !important;
             max-width: min(100%, 460px) !important;
             margin: 0 auto !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .hero-cta-group {
+            flex-direction: column !important;
+            width: 100% !important;
+            gap: 10px !important;
+          }
+          .hero-cta-group a {
+            width: 100% !important;
+            justify-content: center !important;
+            text-align: center !important;
+            padding: 12px 20px !important;
+            font-size: 0.85rem !important;
           }
         }
       `}</style>

@@ -247,7 +247,7 @@ export default function RepoReport({ report, onReset, devWarriorStatus = null })
                   </div>
                 </div>
 
-                <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
                       fontFamily: 'var(--font-pixel)',
@@ -653,7 +653,7 @@ export default function RepoReport({ report, onReset, devWarriorStatus = null })
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
             gap: '12px',
             fontFamily: 'var(--font-body)',
             fontSize: '0.75rem',

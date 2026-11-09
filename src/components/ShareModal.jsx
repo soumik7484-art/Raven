@@ -79,6 +79,17 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
     }
   }, [previewImageUrl])
 
+  // Lock background scrolling while modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const orig = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = orig
+      }
+    }
+  }, [isOpen])
+
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -239,16 +250,18 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
         aria-modal="true"
         aria-labelledby="share-modal-title"
         style={{
-          width: '100%',
-          maxWidth: '560px',
+          width: 'min(92vw, 600px)',
+          maxWidth: '100%',
           backgroundColor: '#ffffff',
           border: '3px solid #2a2a2a',
           borderRadius: '4px',
-          boxShadow: '8px 8px 0 #2a2a2a',
+          boxShadow: '6px 6px 0 #2a2a2a',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: '90vh',
+          maxHeight: '85dvh',
+          height: 'auto',
+          boxSizing: 'border-box',
         }}
       >
         {/* ── Modal Header ── */}
@@ -287,11 +300,14 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
               border: 'none',
               color: '#ffffff',
               cursor: 'pointer',
-              padding: '4px',
+              padding: '6px',
+              minWidth: '34px',
+              minHeight: '34px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               lineHeight: 1,
+              flexShrink: 0,
             }}
           >
             <X size={18} />
@@ -303,16 +319,19 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
           style={{
             backgroundColor: '#f5f5f0',
             borderBottom: '1px solid #dcdcd4',
-            padding: '8px 16px',
+            padding: '8px 14px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             fontSize: '0.75rem',
             fontFamily: 'monospace',
             color: '#444',
+            gap: '8px',
+            width: '100%',
+            boxSizing: 'border-box',
           }}
         >
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '380px' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, fontSize: 'clamp(0.68rem, 2.2vw, 0.75rem)' }}>
             Target: <strong>{url}</strong>
           </span>
           <span
@@ -323,6 +342,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
               fontSize: '0.65rem',
               fontFamily: 'var(--font-pixel)',
               borderRadius: '2px',
+              flexShrink: 0,
             }}
           >
             {score}/100
@@ -358,8 +378,12 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
             <span
               style={{
                 fontFamily: 'var(--font-pixel)',
-                fontSize: '0.62rem',
+                fontSize: 'clamp(0.52rem, 2.2vw, 0.62rem)',
                 color: activeTab === 'pdf' ? '#111' : '#666',
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                textAlign: 'center',
+                lineHeight: 1.2,
               }}
             >
               PDF REPORT
@@ -386,8 +410,12 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
             <span
               style={{
                 fontFamily: 'var(--font-pixel)',
-                fontSize: '0.62rem',
+                fontSize: 'clamp(0.52rem, 2.2vw, 0.62rem)',
                 color: activeTab === 'link' ? '#111' : '#666',
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                textAlign: 'center',
+                lineHeight: 1.2,
               }}
             >
               PUBLIC LINK
@@ -413,8 +441,12 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
             <span
               style={{
                 fontFamily: 'var(--font-pixel)',
-                fontSize: '0.62rem',
+                fontSize: 'clamp(0.52rem, 2.2vw, 0.62rem)',
                 color: activeTab === 'image' ? '#111' : '#666',
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                textAlign: 'center',
+                lineHeight: 1.2,
               }}
             >
               SOCIAL CARD
@@ -468,7 +500,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                 <div style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.62rem', color: '#666', marginBottom: '8px' }}>
                   INCLUDED IN THIS DOCUMENT:
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', color: '#333' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '6px', color: '#333' }}>
                   <div>✓ Executive Risk Score ({score}/100)</div>
                   <div>✓ Risk Category ({riskCategory})</div>
                   <div>✓ Authoritative Safe Browsing</div>

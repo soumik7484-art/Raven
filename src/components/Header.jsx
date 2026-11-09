@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 
 /**
@@ -23,6 +23,16 @@ const NAV_LINKS = [
 export default function Header({ onSignOut }) {
   const { user, userProfile, logout, openAuthModal } = useAuth()
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      const orig = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = orig
+      }
+    }
+  }, [open])
 
   async function handleSignOut() {
     try {
@@ -98,6 +108,7 @@ export default function Header({ onSignOut }) {
             >
               <img
                 src="/assets/raven-emblem-new.jpg"
+                className="header-logo-emblem"
                 alt="Raven Logo"
                 style={{
                   height: '38px',
@@ -109,6 +120,7 @@ export default function Header({ onSignOut }) {
               />
               <img
                 src="/assets/raven-wordmark-new.jpg"
+                className="header-logo-wordmark"
                 alt="RAVEN"
                 style={{
                   height: '24px',
@@ -717,6 +729,28 @@ export default function Header({ onSignOut }) {
           }
           .header-user-welcome {
             padding: 3px !important;
+          }
+        }
+
+        /* Extra small phones: <= 480px */
+        @media (max-width: 480px) {
+          .header-bar-container {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            gap: 6px !important;
+          }
+          .header-logo-emblem {
+            height: 32px !important;
+          }
+          .header-logo-wordmark {
+            height: 18px !important;
+          }
+        }
+
+        /* 320px - 350px ultra compact phones */
+        @media (max-width: 350px) {
+          .header-logo-wordmark {
+            display: none !important;
           }
         }
 
