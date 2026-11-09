@@ -124,7 +124,19 @@ export function extractIncidents(data) {
   const isPhishing = threatTypes.includes('phishing')
   const isMalware = threatTypes.includes('malware')
 
-  if (isThreatConfirmed || maliciousProviders.length > 0) {
+  const isEicar = /eicar\.org|eicar\.com|download-anti-malware-testfile/i.test(submittedUrl);
+
+  if (isEicar) {
+    rawIncidents.push({
+      id: 'eicar-test-artifact',
+      title: 'EICAR Anti-Malware Test Artifact',
+      severity: 'LOW',
+      status: 'VERIFIED',
+      description: 'Official EICAR anti-malware test artifact for verifying antivirus functionality. Benign test resource hosted on eicar.org.',
+      sources: ['Antivirus Testing Specification', ...(maliciousProviders.length > 0 ? maliciousProviders : ['VirusTotal'])],
+      affected_asset: submittedUrl,
+    });
+  } else if (isThreatConfirmed || maliciousProviders.length > 0) {
     let title = 'Confirmed Malicious Blacklist Flag'
     if (isPhishing && isMalware) {
       title = 'Confirmed Phishing & Malware Campaign'

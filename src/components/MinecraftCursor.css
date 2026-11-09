@@ -10,8 +10,8 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 30px;
-    height: 35px;
+    width: 24px;
+    height: 28px;
     z-index: 2147483647;
     pointer-events: none;
     user-select: none;
@@ -43,8 +43,8 @@
 
   /* Default state: exact pickaxe artwork. */
   .minecraft-cursor__pickaxe {
-    width: 30px;
-    height: 35px;
+    width: 24px;
+    height: 28px;
     inset: 0;
     opacity: 1;
     transform: scale(1) rotate(-3deg);
@@ -52,10 +52,10 @@
 
   /* Hover state: Classic pixel hand sign pointer. */
   .minecraft-cursor__hand {
-    width: 21px;
-    height: 22px;
-    left: 10px;
-    top: 16px;
+    width: 17px;
+    height: 18px;
+    left: 8px;
+    top: 13px;
     filter: drop-shadow(2px 2px 0px rgba(0, 0, 0, 0.35));
   }
 
@@ -75,8 +75,8 @@
     position: fixed;
     pointer-events: none;
     z-index: 999998;
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
     background: #ffb45e;
     image-rendering: pixelated;
     animation: pixelFade 0.65s steps(6) forwards;

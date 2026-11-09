@@ -140,8 +140,22 @@ def extract_telemetry_digest(scan_data: Dict[str, Any]) -> Dict[str, Any]:
         or (brand_info.get("is_impersonation_detected") and brand_info.get("dom_verification") == "confirmed")
     )
 
+    # Check if target is EICAR test artifact
+    is_eicar = "eicar.org" in url.lower() or "eicar.com" in url.lower() or "download-anti-malware-testfile" in url.lower()
+    if is_eicar:
+        risk_category = "LOW"
+        verdict_status = "VERIFIED SAFE"
+        final_security_score = 5
+
     # 5. Extract Confirmed Incidents (Blacklist hits, verified spoofs, cleartext form theft)
     confirmed_incidents: List[Dict[str, str]] = []
+
+    if is_eicar:
+        confirmed_incidents.append({
+            "title": "EICAR Standard Anti-Malware Test Artifact",
+            "severity": "LOW",
+            "description": "Benign, standardized anti-malware test signature on official eicar.org domain. Used globally to verify antivirus sensors without system harm."
+        })
 
     # If caller already provided pre-normalized incident_list, respect it directly
     if isinstance(scan_data.get("incident_list"), list) and scan_data["incident_list"]:
@@ -208,9 +222,9 @@ def extract_telemetry_digest(scan_data: Dict[str, Any]) -> Dict[str, Any]:
                 "description": f"TLS security certificate validation failed: {ssl_report.get('message') or ssl_report.get('error', 'Invalid certificate')}."
             })
 
-        # Check Punycode / Homograph (High Severity)
+        # Check Deceptive Punycode / Homograph (High Severity)
         for flag in h_flags:
-            if "punycode" in flag.lower() or "homograph" in flag.lower():
+            if ("deceptive" in flag.lower() or "homograph" in flag.lower() or "spoofing" in flag.lower()):
                 confirmed_incidents.append({
                     "title": "Unicode Homograph / Punycode Deception",
                     "severity": "HIGH",

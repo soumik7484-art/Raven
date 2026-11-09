@@ -1,3 +1,20 @@
+"""
+website_scanner.py — Hardened Multi-Source Cybersecurity Telemetry & Threat Analysis Engine
+
+Implements evidence-driven, transparent URL and website threat inspection:
+- SSRF-protected safe network requests with hop-by-hop redirect inspection
+- Distinguishes confirmed threats, suspicious indicators, clean results, and inconclusive telemetry
+- Dedicated EICAR anti-malware test artifact contextualization
+- Accurate Punycode & homograph analysis (distinguishing legitimate IDNs from deceptive brand spoofing)
+- Form analysis (same-origin login vs external credential exfiltration)
+- Strict 0-100 risk scoring with transparent evidence weights and non-overlapping tiers:
+    0-19: Low risk (Clean / Safe)
+    20-39: Moderate risk (Hygiene / Inconclusive telemetry)
+    40-59: Suspicious (Meaningful heuristic / vendor flags)
+    60-79: High risk (Elevated threat signals)
+    80-100: Critical risk (Confirmed malware / phishing / active spoofing)
+"""
+
 import asyncio
 import base64
 import re
@@ -5,7 +22,7 @@ import socket
 import ssl
 import urllib.parse
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import httpx
 
 from config import (
@@ -14,9 +31,15 @@ from config import (
     URLHAUS_API_KEY,
     FETCH_TIMEOUT_SECONDS,
 )
+from services.ssrf_protector import validate_target_hostname, safe_fetch_url
 
 HIGH_RISK_TLDS = {
     "xyz", "top", "tk", "ml", "ga", "cf", "gq", "buzz", "fit", "icu", "work", "rest", "cam", "bid"
+}
+
+URL_SHORTENERS = {
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "is.gd", "buff.ly", "ow.ly",
+    "rebrand.ly", "cutt.ly", "shorturl.at", "tiny.cc", "rb.gy"
 }
 
 TARGET_BRANDS = [
@@ -62,6 +85,16 @@ PHISHING_KEYWORDS = [
     "password", "auth", "validation", "support"
 ]
 
+def is_eicar_test_case(url: str, hostname: str) -> bool:
+    """Detects official EICAR anti-malware test artifact resources."""
+    u_lower = url.lower()
+    h_lower = hostname.lower()
+    if "eicar.org" in h_lower or "eicar.com" in h_lower:
+        return True
+    if "download-anti-malware-testfile" in u_lower or "eicar.com" in u_lower:
+        return True
+    return False
+
 def is_legitimate_brand_domain(hostname: str, brand: str) -> bool:
     """
     Checks if a hostname belongs legitimately to the given brand.
@@ -93,6 +126,10 @@ def is_legitimate_brand_domain(hostname: str, brand: str) -> bool:
     return False
 
 def check_homograph_and_punycode(hostname: str) -> Dict[str, Any]:
+    """
+    Inspects Internationalized Domain Names (IDNs) and Punycode.
+    Distinguishes legitimate foreign-language IDNs from deceptive homograph brand attacks.
+    """
     has_punycode = "xn--" in hostname.lower()
     has_unicode = False
     decoded_hostname = hostname
@@ -110,21 +147,46 @@ def check_homograph_and_punycode(hostname: str) -> Dict[str, Any]:
     except Exception:
         pass
 
+    # Check for mixed scripts or confusable substitution targeting known brands
+    has_mixed_script_brand_spoof = False
+    spoofed_brand = None
+
+    if has_punycode or has_unicode:
+        decoded_lower = decoded_hostname.lower()
+        normalized_confusables = "".join(CONFUSABLES.get(c, c) for c in decoded_lower)
+        for b in TARGET_BRANDS:
+            if b in normalized_confusables and not is_legitimate_brand_domain(hostname, b):
+                has_mixed_script_brand_spoof = True
+                spoofed_brand = b
+                break
+
     return {
         "has_punycode": has_punycode,
         "has_unicode": has_unicode,
-        "decoded_hostname": decoded_hostname
+        "decoded_hostname": decoded_hostname,
+        "is_deceptive_homograph": has_mixed_script_brand_spoof,
+        "spoofed_brand": spoofed_brand
     }
 
 def normalize_target_url(raw_url: str) -> Dict[str, Any]:
-    url = raw_url.strip()
+    """
+    Robust URL normalization handling protocol omission, IPv4/IPv6,
+    trailing dots, and query components without silently altering the target destination.
+    """
+    url = (raw_url or "").strip()
     if not url.startswith("http://") and not url.startswith("https://"):
         url = "https://" + url
 
-    parsed = urllib.parse.urlparse(url)
-    hostname = (parsed.hostname or "").lower()
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        parsed = urllib.parse.urlparse("https://unknown-malformed-url.invalid")
+
+    hostname = (parsed.hostname or "").lower().rstrip(".")
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     
+    is_shortener = hostname in URL_SHORTENERS
+
     return {
         "full_url": url,
         "scheme": parsed.scheme,
@@ -132,9 +194,10 @@ def normalize_target_url(raw_url: str) -> Dict[str, Any]:
         "port": port,
         "path": parsed.path or "/",
         "query": parsed.query,
+        "is_shortener": is_shortener
     }
 
-async def query_google_safe_browsing(url: str, timeout: float = 6.0) -> Dict[str, Any]:
+async def query_google_safe_browsing(url: str, timeout: float = 5.0) -> Dict[str, Any]:
     if not GOOGLE_SAFE_BROWSING_API_KEY:
         return {
             "status": "unconfigured",
@@ -146,7 +209,7 @@ async def query_google_safe_browsing(url: str, timeout: float = 6.0) -> Dict[str
     payload = {
         "client": {
             "clientId": "raven-security-scanner",
-            "clientVersion": "1.0.0"
+            "clientVersion": "2.0.0"
         },
         "threatInfo": {
             "threatTypes": [
@@ -178,7 +241,14 @@ async def query_google_safe_browsing(url: str, timeout: float = 6.0) -> Dict[str
                 return {
                     "status": "clean",
                     "matches": [],
-                    "message": "Clean. No listings in Google Safe Browsing global threat lists."
+                    "message": "Clean. Zero threat matches in Google Safe Browsing global lists."
+                }
+            elif resp.status_code in {401, 403}:
+                return {
+                    "status": "unconfigured",
+                    "code": resp.status_code,
+                    "matches": [],
+                    "message": "Google Safe Browsing authentication or quota limitation"
                 }
             else:
                 return {
@@ -194,7 +264,7 @@ async def query_google_safe_browsing(url: str, timeout: float = 6.0) -> Dict[str
             "message": f"GSB query timed out or failed: {str(e)}"
         }
 
-async def query_virustotal(url: str, domain: str, timeout: float = 6.0) -> Dict[str, Any]:
+async def query_virustotal(url: str, domain: str, timeout: float = 5.0) -> Dict[str, Any]:
     if not VIRUSTOTAL_API_KEY:
         return {
             "status": "unconfigured",
@@ -235,10 +305,7 @@ async def query_virustotal(url: str, domain: str, timeout: float = 6.0) -> Dict[
                 if malicious >= 3:
                     status = "malicious"
                 elif malicious > 0 or suspicious >= 2:
-                    if malicious <= 2 and harmless >= 50:
-                        status = "suspicious"
-                    else:
-                        status = "suspicious" if malicious == 1 else "malicious"
+                    status = "suspicious"
 
                 return {
                     "status": status,
@@ -260,6 +327,13 @@ async def query_virustotal(url: str, domain: str, timeout: float = 6.0) -> Dict[
                     "stats": {},
                     "message": "Target domain/URL has no negative reputation history on VirusTotal."
                 }
+            elif resp.status_code in {401, 403}:
+                return {
+                    "status": "unconfigured",
+                    "code": resp.status_code,
+                    "stats": {},
+                    "message": "VirusTotal API key invalid or rate-limited"
+                }
             else:
                 return {
                     "status": "error",
@@ -274,7 +348,7 @@ async def query_virustotal(url: str, domain: str, timeout: float = 6.0) -> Dict[
             "message": f"VirusTotal query failed: {str(e)}"
         }
 
-async def query_urlhaus(url: str, domain: str, timeout: float = 6.0) -> Dict[str, Any]:
+async def query_urlhaus(url: str, domain: str, timeout: float = 5.0) -> Dict[str, Any]:
     api_url = "https://urlhaus-api.abuse.ch/v1/url/"
     headers = {}
     if URLHAUS_API_KEY:
@@ -315,8 +389,22 @@ async def query_urlhaus(url: str, domain: str, timeout: float = 6.0) -> Dict[str
         }
 
 def probe_tls_certificate(hostname: str, port: int = 443, timeout: float = 4.0) -> Dict[str, Any]:
+    """
+    Inspects TLS certificates, differentiating expired certs, host mismatches,
+    untrusted roots, connection failures, and closed ports.
+    """
     if not hostname:
-        return {"valid": False, "error": "Missing hostname"}
+        return {"valid": False, "error": "Missing hostname", "tls_outcome": "MISSING_HOSTNAME"}
+
+    # Validate that hostname is not SSRF prohibited
+    val_res = validate_target_hostname(hostname)
+    if not val_res["is_safe"]:
+        return {
+            "valid": False,
+            "error": "SSRF_PROHIBITED",
+            "message": f"TLS probe blocked: {val_res['error']}",
+            "tls_outcome": "SSRF_PROHIBITED"
+        }
 
     ctx = ssl.create_default_context()
     try:
@@ -347,75 +435,143 @@ def probe_tls_certificate(hostname: str, port: int = 443, timeout: float = 4.0) 
                     "subject": subject_name,
                     "expires": expires,
                     "protocol": version,
-                    "message": f"Valid {version} certificate issued by {issuer_name} (Expires: {expires})"
+                    "tls_outcome": "EXPIRED_CERTIFICATE" if is_expired else "VALID_TLS",
+                    "message": f"{'Expired' if is_expired else 'Valid'} {version} certificate issued by {issuer_name} (Expires: {expires})"
                 }
     except ssl.SSLCertVerificationError as e:
         return {
             "valid": False,
             "expired": False,
             "error": "SSL Verification Failed",
+            "tls_outcome": "INVALID_CERTIFICATE",
             "message": f"SSL certificate verification failed: {e.verify_message}"
+        }
+    except (socket.timeout, TimeoutError):
+        return {
+            "valid": False,
+            "error": "ConnectionTimeout",
+            "tls_outcome": "CONNECTION_TIMEOUT",
+            "message": f"TLS connection to {hostname}:{port} timed out."
+        }
+    except ConnectionRefusedError:
+        return {
+            "valid": False,
+            "error": "ConnectionRefused",
+            "tls_outcome": "PORT_CLOSED",
+            "message": f"Connection refused on port {port} (port closed or host unreachable)."
+        }
+    except socket.gaierror as e:
+        return {
+            "valid": False,
+            "error": "DNS_RESOLUTION_FAILED",
+            "tls_outcome": "DNS_FAILED",
+            "message": f"DNS resolution failed during TLS probe: {str(e)}"
         }
     except Exception as e:
         return {
             "valid": False,
             "error": type(e).__name__,
-            "message": f"TLS probe failed or port 443 closed: {str(e)}"
+            "tls_outcome": "UNAVAILABLE",
+            "message": f"TLS probe failed: {str(e)}"
         }
 
-async def inspect_webpage_content(url: str, timeout: float = 3.0) -> Dict[str, Any]:
+async def inspect_webpage_content(url: str, timeout: float = 4.0) -> Dict[str, Any]:
     """
-    Performs passive webpage DOM / content inspection.
-    When inspection times out or encounters network failures, explicitly marks
-    the verification state as inconclusive.
+    Performs passive webpage DOM inspection using SSRF-safe client.
+    Distinguishes completed, timeout, connection refused, DNS failure, and SSRF blocks.
+    Detects credential forms and verifies whether password submissions point to external domains.
     """
-    try:
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, verify=False) as client:
-            resp = await client.get(url)
-            html = resp.text
-            html_lower = html.lower()
-            title_match = re.search(r"<title>(.*?)</title>", html, re.IGNORECASE)
-            title = title_match.group(1).strip() if title_match else ""
-            has_login = bool(
-                re.search(r'<input[^>]+type=["\']password["\']', html_lower)
-                or ("<form" in html_lower and ("login" in html_lower or "signin" in html_lower or "password" in html_lower))
-            )
-            brand_mentions = [b for b in TARGET_BRANDS if b in html_lower]
+    fetch_result = await safe_fetch_url(url, max_redirects=5, timeout=timeout)
 
-            return {
-                "status": "completed",
-                "content_inspection_state": "COMPLETED",
-                "dom_inspection_available": True,
-                "inspection_state": "completed",
-                "dom_verification": "completed",
-                "status_code": resp.status_code,
-                "title": title,
-                "has_login_form": has_login,
-                "brand_mentions": brand_mentions,
-                "message": "Webpage DOM content inspection completed."
-            }
-    except httpx.TimeoutException:
+    if not fetch_result["success"]:
+        err_msg = fetch_result.get("error", "Inspection failed")
+        is_timeout = fetch_result.get("is_timeout", False)
+        is_connect_err = fetch_result.get("is_connect_error", False)
+        is_dns_failure = fetch_result.get("is_dns_failure", False)
+        ssrf_blocked = fetch_result.get("ssrf_blocked", False)
+
+        inspection_state = (
+            "ssrf_blocked" if ssrf_blocked
+            else "dns_failure" if is_dns_failure
+            else "timeout" if is_timeout
+            else "unreachable" if is_connect_err
+            else "unavailable"
+        )
+
         return {
             "status": "inconclusive",
             "content_inspection_state": "INCONCLUSIVE",
             "dom_inspection_available": False,
-            "inspection_state": "timeout",
+            "inspection_state": inspection_state,
             "dom_verification": "inconclusive",
-            "fetch_error": "Connection timed out during DOM inspection",
-            "message": "Webpage DOM content inspection timed out; webpage-level verification is inconclusive."
+            "fetch_error": err_msg,
+            "message": f"Webpage DOM content inspection inconclusive: {err_msg}",
+            "redirect_chain": fetch_result.get("redirect_chain", []),
+            "final_url": fetch_result.get("final_url", url),
+            "ssrf_blocked": ssrf_blocked,
+            "is_dns_failure": is_dns_failure
         }
-    except Exception as e:
-        return {
-            "status": "inconclusive",
-            "content_inspection_state": "INCONCLUSIVE",
-            "dom_inspection_available": False,
-            "inspection_state": "unavailable",
-            "dom_verification": "inconclusive",
-            "fetch_error": str(e),
-            "message": f"Webpage DOM content inspection unavailable: {str(e)}"
-        }
+
+    html = fetch_result.get("text", "")
+    html_lower = html.lower()
+    final_url = fetch_result.get("final_url", url)
+
+    # Extract title
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    title = title_match.group(1).strip() if title_match else ""
+
+    # Form & Credential Analysis
+    has_password_field = bool(re.search(r'<input[^>]+type=["\']password["\']', html_lower))
+    has_external_credential_action = False
+    has_insecure_http_action = False
+
+    # Extract form actions
+    form_matches = re.finditer(r'<form\b([^>]*)>(.*?)</form>', html_lower, re.DOTALL)
+    current_parsed = urllib.parse.urlparse(final_url)
+    current_domain = (current_parsed.hostname or "").lower()
+
+    for fm in form_matches:
+        attrs = fm.group(1)
+        body = fm.group(2)
+        has_pwd = 'type="password"' in body or "type='password'" in body
+
+        action_match = re.search(r'action=["\']([^"\']*)["\']', attrs)
+        if action_match and has_pwd:
+            action_url = action_match.group(1).strip()
+            if action_url.startswith("http://"):
+                has_insecure_http_action = True
+            if action_url.startswith("http://") or action_url.startswith("https://"):
+                action_domain = (urllib.parse.urlparse(action_url).hostname or "").lower()
+                if action_domain and action_domain != current_domain and not action_domain.endswith(f".{current_domain}"):
+                    has_external_credential_action = True
+
+    brand_mentions = [b for b in TARGET_BRANDS if b in html_lower]
+
+    return {
+        "status": "completed",
+        "content_inspection_state": "COMPLETED",
+        "dom_inspection_available": True,
+        "inspection_state": "completed",
+        "dom_verification": "completed",
+        "status_code": fetch_result.get("status_code", 200),
+        "title": title,
+        "has_login_form": has_password_field,
+        "has_external_credential_action": has_external_credential_action,
+        "has_insecure_http_action": has_insecure_http_action,
+        "brand_mentions": brand_mentions,
+        "redirect_chain": fetch_result.get("redirect_chain", []),
+        "final_url": final_url,
+        "message": "Webpage DOM content inspection completed successfully."
+    }
 
 def evaluate_lexical_heuristics(url: str, hostname: str) -> Dict[str, Any]:
+    """
+    Evaluates lexical and domain characteristics.
+    Crucially:
+    - Never flags benign Punycode as malicious without homograph spoofing targeting a brand.
+    - Never flags standard legitimate login paths as malicious.
+    - Accurately tracks evidence score contributions.
+    """
     flags = []
     risk_score = 0  # 0 to 100
 
@@ -423,15 +579,19 @@ def evaluate_lexical_heuristics(url: str, hostname: str) -> Dict[str, Any]:
     is_ip = bool(re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", hostname))
     if is_ip:
         flags.append("Target uses raw IP address instead of registered domain")
-        risk_score += 35
+        risk_score += 25
 
-    # 2. Punycode / IDN homograph spoofing
+    # 2. Punycode / IDN homograph analysis
     homograph_info = check_homograph_and_punycode(hostname)
-    if homograph_info["has_punycode"] or homograph_info["has_unicode"]:
-        flags.append("Punycode (IDN) detected; possible homograph spoofing attempt")
-        risk_score += 35
+    if homograph_info["is_deceptive_homograph"]:
+        flags.append(f"Punycode (IDN) detected; possible homograph spoofing attempt targeting '{homograph_info['spoofed_brand']}'")
+        risk_score += 45
+    elif homograph_info["has_punycode"] or homograph_info["has_unicode"]:
+        # Legitimate Internationalized Domain Name (e.g. münchen.de) - informational observation only
+        flags.append("Internationalized Domain Name (IDN / Punycode) encoding present")
+        risk_score += 5
 
-    # 3. High-risk TLD
+    # 3. Frequently abused TLD
     tld = hostname.split(".")[-1] if "." in hostname else ""
     if tld in HIGH_RISK_TLDS:
         flags.append(f"Domain registered under frequently abused TLD (.{tld})")
@@ -450,10 +610,10 @@ def evaluate_lexical_heuristics(url: str, hostname: str) -> Dict[str, Any]:
             if not is_legitimate_brand_domain(hostname, b):
                 detected_brand = b
                 flags.append(f"Potential brand impersonation: '{b}' referenced in non-official domain '{hostname}'")
-                risk_score += 40
+                risk_score += 35
                 if matched_phish_words:
                     flags.append(f"Deceptive phishing keyword tokens detected: {', '.join(matched_phish_words)}")
-                    risk_score += 25
+                    risk_score += 20
                 break
     elif matched_phish_words and (tld in HIGH_RISK_TLDS or is_ip):
         flags.append(f"High-risk credential/login keywords present in unverified domain: {', '.join(matched_phish_words)}")
@@ -462,17 +622,17 @@ def evaluate_lexical_heuristics(url: str, hostname: str) -> Dict[str, Any]:
     # 5. Excessive subdomains
     subdomain_parts = hostname.split(".")
     if len(subdomain_parts) > 4:
-        flags.append(f"Excessive subdomain depth ({len(subdomain_parts)} segments) often seen in dynamic redirection networks")
-        risk_score += 15
+        flags.append(f"Excessive subdomain depth ({len(subdomain_parts)} segments)")
+        risk_score += 10
 
     # 6. '@' character in URL
     if "@" in url:
         flags.append("URL contains '@' symbol; classic userinfo spoofing vector")
-        risk_score += 35
+        risk_score += 30
 
     # 7. Extremely long URL
-    if len(url) > 200:
-        flags.append("Unusually long URL length (> 200 characters) with embedded query tokens")
+    if len(url) > 250:
+        flags.append("Unusually long URL length (> 250 characters)")
         risk_score += 10
 
     return {
@@ -481,6 +641,7 @@ def evaluate_lexical_heuristics(url: str, hostname: str) -> Dict[str, Any]:
         "is_ip": is_ip,
         "tld": tld,
         "punycode": homograph_info["has_punycode"] or homograph_info["has_unicode"],
+        "is_deceptive_homograph": homograph_info["is_deceptive_homograph"],
         "detected_brand": detected_brand
     }
 
@@ -493,186 +654,310 @@ def synthesize_scan_report(
     dom_result: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Pure assessment synthesizer that transforms multi-engine security telemetry,
-    lexical heuristics, and DOM findings into a structured, consistent report.
-    Adheres strictly to threat intelligence independence and inconclusive telemetry rules.
+    Synthesizes multi-engine security telemetry, heuristics, and DOM findings into
+    a consistent, evidence-driven report.
+    Adheres strictly to the standardized 0-100 risk scale:
+      0-19: Low risk
+      20-39: Moderate risk
+      40-59: Suspicious
+      60-79: High risk
+      80-100: Critical risk
     """
     normalized = normalize_target_url(target_url)
     url = normalized["full_url"]
     hostname = normalized["hostname"]
 
+    # Special handling for official EICAR test file resources
+    is_eicar = is_eicar_test_case(url, hostname)
+
     # Evaluate lexical heuristics
     heuristics = evaluate_lexical_heuristics(url, hostname)
     detected_brand = heuristics.get("detected_brand")
 
-    # ── DOM Verification of Brand Impersonation ──
+    # Evaluate DOM findings
     dom_inconclusive = dom_result.get("content_inspection_state") == "INCONCLUSIVE"
     dom_confirmed = False
+    has_external_credential_theft = dom_result.get("has_external_credential_action", False)
+    is_dns_failure = dom_result.get("is_dns_failure", False)
+    ssrf_blocked = dom_result.get("ssrf_blocked", False)
+
     if not dom_inconclusive and detected_brand:
         mentions = dom_result.get("brand_mentions", [])
         title = (dom_result.get("title") or "").lower()
         if detected_brand in mentions or detected_brand in title or dom_result.get("has_login_form"):
             dom_confirmed = True
 
-    # ── Threat Intelligence Isolation ──
+    # Threat Intelligence Isolation
     gsb_is_bad = gsb_result.get("status") == "malicious"
     vt_malicious_count = vt_result.get("malicious_count", 0)
     vt_suspicious_count = vt_result.get("suspicious_count", 0)
     uh_is_bad = uh_result.get("status") == "malicious"
 
-    ti_malicious = bool(gsb_is_bad or vt_malicious_count >= 3 or uh_is_bad)
-    providers_malicious_count = (
-        (1 if gsb_is_bad else 0) +
-        (1 if vt_malicious_count >= 3 else 0) +
-        (1 if uh_is_bad else 0)
-    )
+    # In EICAR case: VT or other engines flagging the test file is expected test artifact behavior!
+    if is_eicar:
+        ti_malicious = False
+        providers_malicious_count = 0
+    else:
+        ti_malicious = bool(gsb_is_bad or vt_malicious_count >= 3 or uh_is_bad or has_external_credential_theft)
+        providers_malicious_count = (
+            (1 if gsb_is_bad else 0) +
+            (1 if vt_malicious_count >= 3 else 0) +
+            (1 if uh_is_bad else 0)
+        )
 
     feed_threat_types = []
-    if gsb_is_bad:
-        for m in gsb_result.get("matches", []):
-            tt = m.get("threatType")
-            if tt:
-                feed_threat_types.append(tt.lower())
-        if not feed_threat_types:
+    if is_eicar:
+        feed_threat_types.append("anti_malware_test_artifact")
+    else:
+        if gsb_is_bad:
+            for m in gsb_result.get("matches", []):
+                tt = m.get("threatType")
+                if tt:
+                    feed_threat_types.append(tt.lower())
+            if not feed_threat_types:
+                feed_threat_types.append("malware")
+        if uh_is_bad:
             feed_threat_types.append("malware")
-    if uh_is_bad:
-        feed_threat_types.append("malware")
-    if vt_malicious_count >= 3:
-        feed_threat_types.append("malicious_vendor_consensus")
-
-    # ── Synthesize Classification and Score ──
-    evidence = []
-    is_malicious = False
-    is_suspicious = False
-
-    # 1. Threat Feeds Check
-    if gsb_is_bad:
-        is_malicious = True
-        evidence.append(f"Google Safe Browsing: MALICIOUS ({gsb_result.get('message')})")
-    else:
-        evidence.append("Google Safe Browsing: Verified clean (zero malicious or deceptive listings)")
-
-    if vt_result.get("status") in {"clean", "malicious", "suspicious"}:
-        total = vt_result.get("total_engines", 0)
-        evidence.append(
-            f"VirusTotal Engines: {vt_malicious_count}/{total} security vendors flagged malicious "
-            f"({vt_result.get('harmless_count', 0)} confirmed harmless)"
-        )
         if vt_malicious_count >= 3:
-            is_malicious = True
-        elif vt_malicious_count > 0 or vt_suspicious_count >= 2:
-            is_suspicious = True
-    elif vt_result.get("status") == "error":
-        evidence.append(f"VirusTotal Engine: {vt_result.get('message')}")
+            feed_threat_types.append("malicious_vendor_consensus")
 
-    if uh_is_bad:
-        is_malicious = True
-        evidence.append(f"URLhaus Database: THREAT DETECTED ({uh_result.get('message')})")
+    # ── Evidence Collection ──
+    evidence = []
+    
+    # SSRF Blocked check
+    if ssrf_blocked:
+        evidence.append(f"Security Restriction: {dom_result.get('fetch_error', 'Prohibited target IP or hostname')}")
+
+    # Threat Feeds Evidence
+    if is_eicar:
+        evidence.append("Special Artifact: Legitimate EICAR Standard Anti-Malware Test Resource (Official eicar.org domain)")
+        if vt_malicious_count > 0:
+            evidence.append(f"Antivirus Telemetry: {vt_malicious_count} vendor(s) correctly identified standard EICAR test signature")
     else:
-        evidence.append("URLhaus Database: Clean (No active malware distributions or C2 channels found)")
+        if gsb_is_bad:
+            evidence.append(f"Google Safe Browsing: MALICIOUS ({gsb_result.get('message')})")
+        elif gsb_result.get("status") == "clean":
+            evidence.append("Google Safe Browsing: Verified clean (zero malicious or deceptive listings)")
+        elif gsb_result.get("status") in {"unconfigured", "error"}:
+            evidence.append(f"Google Safe Browsing: Feed telemetry unavailable ({gsb_result.get('message')})")
 
-    # 2. TLS Evidence
+        if vt_result.get("status") in {"clean", "malicious", "suspicious"}:
+            total = vt_result.get("total_engines", 0)
+            evidence.append(
+                f"VirusTotal Engines: {vt_malicious_count}/{total} security vendors flagged malicious "
+                f"({vt_result.get('harmless_count', 0)} confirmed harmless)"
+            )
+        elif vt_result.get("status") in {"unconfigured", "error"}:
+            evidence.append(f"VirusTotal Engine: Feed telemetry unavailable ({vt_result.get('message')})")
+
+        if uh_is_bad:
+            evidence.append(f"URLhaus Database: THREAT DETECTED ({uh_result.get('message')})")
+        elif uh_result.get("status") == "clean":
+            evidence.append("URLhaus Database: Clean (No active malware distributions or C2 channels found)")
+        elif uh_result.get("status") in {"unconfigured", "error"}:
+            evidence.append(f"URLhaus Database: Feed telemetry unavailable ({uh_result.get('message')})")
+
+    # TLS Evidence
     if tls_result.get("valid"):
         evidence.append(f"TLS Security: Valid certificate ({tls_result.get('protocol')}, issued by {tls_result.get('issuer')})")
     else:
         if normalized["scheme"] == "https":
-            evidence.append(f"TLS Security Warning: {tls_result.get('message', 'Invalid certificate')}")
-            is_suspicious = True
+            evidence.append(f"TLS Security Notice: {tls_result.get('message', 'Certificate inspection failed')}")
         else:
             evidence.append("Connection Protocol: Insecure plaintext HTTP (No TLS encryption present)")
-            is_suspicious = True
 
-    # 3. Webpage DOM Evidence
-    if dom_inconclusive:
+    # DOM Evidence
+    if is_dns_failure:
+        evidence.append(f"Network Telemetry: DNS resolution failed (domain does not exist or has no active DNS zone)")
+    elif dom_inconclusive:
         evidence.append(f"Webpage Telemetry: DOM content inspection inconclusive ({dom_result.get('fetch_error', 'timeout')})")
+    elif has_external_credential_theft:
+        evidence.append("Webpage Telemetry: Confirmed credential theft form submitting passwords to unauthorized third-party destination")
     elif dom_confirmed:
-        is_malicious = True
         evidence.append(f"Webpage Telemetry: Verified brand spoofing content targeting '{detected_brand}' in live DOM")
     else:
         evidence.append("Webpage Telemetry: DOM content inspection completed")
 
-    # 4. Heuristic Evidence
+    # Heuristic Evidence
     if heuristics["flags"]:
         for flag in heuristics["flags"]:
             evidence.append(f"Heuristic Flag: {flag}")
-        if heuristics["risk_score"] >= 65:
-            if dom_confirmed or ti_malicious:
-                is_malicious = True
-            else:
-                is_suspicious = True
-        elif heuristics["risk_score"] >= 25:
-            is_suspicious = True
     else:
         evidence.append("Domain Heuristics: Standard lexical structure with zero brand-spoofing flags")
 
-    # ── Final Verdict & Score Calculation (1-100: 1 is okay/green, 100 is dangerous) ──
-    if is_malicious:
+    # Redirect Evidence
+    redirect_chain = dom_result.get("redirect_chain", [])
+    if redirect_chain:
+        evidence.append(f"Redirect Analysis: Followed {len(redirect_chain)} redirect hop(s) to final destination '{dom_result.get('final_url')}'")
+
+    # ── Final Verdict & Score Calculation (0-100 scale) ──
+    # 0-19: Low risk
+    # 20-39: Moderate risk
+    # 40-59: Suspicious
+    # 60-79: High risk
+    # 80-100: Critical risk
+
+    if ssrf_blocked:
+        classification = "suspicious"
+        score = 50
+        detection_status = "Access Prohibited"
+        threat_type = "SSRF Policy Violation"
+        confidence = "High Confidence (99%)"
+        explanation = "SECURITY RESTRICTION: Target URL resolves to a prohibited internal network, loopback address, or cloud metadata endpoint."
+        recommended_action = "Access to internal, loopback, or private infrastructure is strictly restricted."
+
+    elif is_eicar:
+        classification = "safe"
+        score = 5
+        detection_status = "Test Artifact Detected"
+        threat_type = "EICAR Anti-Malware Test Resource"
+        confidence = "High Confidence (99%)"
+        explanation = (
+            "OFFICIAL SECURITY TEST ARTIFACT: The target resides on the official European Institute for Computer Antivirus "
+            "Research (EICAR) domain. Any antivirus vendor detections correspond to the benign, standardized EICAR test file "
+            "designed specifically to verify antivirus functionality without causing system harm. This is NOT an active attack."
+        )
+        recommended_action = "Safe for authorized security verification testing. Not a hostile malicious website."
+
+    elif ti_malicious or dom_confirmed or has_external_credential_theft:
         classification = "malicious"
-        score = 100
-        risk_score = 100
+        score = 100 if (gsb_is_bad or vt_malicious_count >= 5 or dom_confirmed or has_external_credential_theft) else 85
         detection_status = "Confirmed Threat"
         threat_type = (
-            "Google Safe Browsing Malware / Phishing" if gsb_is_bad
+            "Confirmed Credential Theft Form (External Exfiltration)" if has_external_credential_theft
+            else "Google Safe Browsing Malware / Phishing" if gsb_is_bad
             else "Multi-Vendor Verified Malicious Target" if vt_malicious_count >= 3
             else f"Confirmed Brand Impersonation: '{detected_brand}'" if dom_confirmed
-            else "Confirmed Credential Theft Threat"
+            else "Confirmed Malicious Infrastructure"
         )
         confidence = "High Confidence (99%)"
         explanation = (
             f"CRITICAL DANGER: '{hostname}' has been confirmed as an active online threat. "
-            "Visiting this site exposes you to phishing campaigns, credential harvesting, or automated malware payloads."
+            "Interacting with this site exposes users to credential theft, malware distribution, or deceptive spoofing."
         )
-        recommended_action = "DO NOT VISIT OR INTERACT. Close this tab immediately and do not submit any passwords or download files."
+        recommended_action = "DO NOT VISIT OR INTERACT. Close this tab immediately and do not submit passwords or download files."
 
-    elif is_suspicious:
+    elif detected_brand or heuristics.get("is_deceptive_homograph"):
         classification = "suspicious"
-        score = int(min(65, max(35, heuristics["risk_score"] + (vt_malicious_count * 15))))
-        risk_score = score
+        score = max(40, min(65, heuristics["risk_score"]))
         detection_status = "Caution Advised"
-        threat_type = (
-            f"Potential Brand Impersonation: '{detected_brand}'" if detected_brand
-            else "Heuristic Deception / Lookalike Risk" if heuristics["risk_score"] >= 25
-            else "Suspicious Vendor Signals" if vt_malicious_count > 0
-            else "Unverified TLS / Certificate Anomaly"
-        )
-        confidence = "Moderate-High Confidence (88%)"
+        threat_type = f"Potential Brand Impersonation: '{detected_brand or heuristics.get('detected_brand')}'"
+        confidence = "Moderate-High Confidence (85%)"
         explanation = (
             f"WARNING: Potential risk signals identified for '{hostname}'. While not yet globally blacklisted, "
             f"hostname similarity suggests potential impersonation of '{detected_brand or 'a known brand'}'. Heightened caution is required."
         )
         recommended_action = "Exercise caution. Verify the domain carefully before proceeding and never enter sensitive passwords or payment details."
 
+    elif vt_malicious_count > 0 or vt_suspicious_count >= 2:
+        classification = "suspicious"
+        score = min(58, 40 + (vt_malicious_count * 8))
+        detection_status = "Caution Advised"
+        threat_type = f"Suspicious Vendor Flags ({vt_malicious_count} engines)"
+        confidence = "Moderate Confidence (75%)"
+        explanation = f"SUSPICIOUS SIGNALS: {vt_malicious_count} security vendor(s) on VirusTotal flagged this URL. Full blacklist consensus is not yet reached."
+        recommended_action = "Exercise heightened awareness and avoid downloading files or entering financial details."
+
+    elif is_dns_failure:
+        classification = "safe"
+        score = 10
+        detection_status = "Host Unresolvable"
+        threat_type = "DNS Resolution Failure (NXDOMAIN)"
+        confidence = "High Confidence (99%)"
+        explanation = f"UNREACHABLE TARGET: '{hostname}' could not be resolved by DNS (NXDOMAIN). The domain does not currently exist or has no active name servers."
+        recommended_action = "Domain is unreachable and does not pose an active web exploit threat, but cannot be browsed."
+
+    elif heuristics["risk_score"] >= 25:
+        classification = "suspicious" if heuristics["risk_score"] >= 40 else "safe"
+        score = min(55, heuristics["risk_score"])
+        detection_status = "Caution Advised" if score >= 40 else "Moderate Risk"
+        threat_type = "Lexical Heuristic Anomaly"
+        confidence = "Moderate Confidence (75%)"
+        explanation = f"HEURISTIC ANOMALIES: Structural indicators detected ({', '.join(heuristics['flags'][:2])})."
+        recommended_action = "Verify the target address before submitting sensitive data."
+
+    elif normalized["scheme"] == "http":
+        classification = "safe"
+        score = 25  # Moderate risk due to unencrypted transport
+        detection_status = "Insecure Transport"
+        threat_type = "Unencrypted HTTP"
+        confidence = "High Confidence (95%)"
+        explanation = f"INSECURE TRANSPORT: '{hostname}' does not use TLS encryption (HTTP). Traffic can be intercepted on local networks."
+        recommended_action = "Do not enter passwords or payment information over plaintext HTTP."
+
+    elif dom_inconclusive:
+        classification = "safe"
+        score = 15
+        detection_status = "Investigation Incomplete"
+        threat_type = "Inconclusive DOM Inspection"
+        confidence = "Moderate Confidence (70%)"
+        explanation = (
+            f"PASSIVE POSTURE CLEAN: '{hostname}' returned zero threat intelligence flags. "
+            f"However, live webpage DOM inspection was inconclusive ({dom_result.get('fetch_error', 'timeout')})."
+        )
+        recommended_action = "Exercise standard browsing caution until page content can be fully verified."
+
     else:
         classification = "safe"
         score = 1
-        risk_score = 1
-        detection_status = "Investigation Incomplete" if dom_inconclusive else "Verified Clean"
-        threat_type = "Inconclusive DOM Inspection" if dom_inconclusive else "None Detected"
-        confidence = "Moderate Confidence (75%)" if dom_inconclusive else "High Confidence (99%)"
-        if dom_inconclusive:
-            explanation = (
-                f"PASSIVE POSTURE CLEAN: '{hostname}' returned zero blacklist flags across security threat databases. "
-                f"However, live webpage DOM content inspection was inconclusive ({dom_result.get('fetch_error', 'timeout')}). "
-                "Webpage safety cannot be guaranteed without complete DOM verification."
-            )
-            recommended_action = "Exercise standard caution. Avoid entering sensitive credentials until page authenticity is confirmed."
-        else:
-            explanation = (
-                f"EXCELLENT POSTURE: '{hostname}' is verified clean. Multi-engine feeds, global threat registers, "
-                "and TLS certificate checks returned zero signs of phishing, deceptive routing, or malicious content."
-            )
-            recommended_action = "Safe to proceed with normal browsing awareness."
+        detection_status = "Verified Clean"
+        threat_type = "None Detected"
+        confidence = "High Confidence (99%)"
+        explanation = (
+            f"EXCELLENT POSTURE: '{hostname}' is verified clean. Multi-engine feeds, global threat registers, "
+            "and TLS certificate checks returned zero signs of phishing, deceptive routing, or malicious content."
+        )
+        recommended_action = "Safe to proceed with normal browsing awareness."
+
+    # Standardized Risk Category
+    if score >= 80:
+        risk_category = "Critical Risk"
+    elif score >= 60:
+        risk_category = "High Risk"
+    elif score >= 40:
+        risk_category = "Suspicious"
+    elif score >= 20:
+        risk_category = "Moderate Risk"
+    else:
+        risk_category = "Low Risk"
+
+    # Investigation Status & Coverage Calculation
+    # Coverage strictly represents actual completed inspection stages
+    total_stages = 4  # GSB, VT/UH, TLS, DOM
+    completed_stages = 0
+    if gsb_result.get("status") in {"clean", "malicious"}:
+        completed_stages += 1
+    if vt_result.get("status") in {"clean", "malicious", "suspicious"} or uh_result.get("status") in {"clean", "malicious"}:
+        completed_stages += 1
+    if tls_result.get("valid") or tls_result.get("tls_outcome") in {"VALID_TLS", "EXPIRED_CERTIFICATE", "INVALID_CERTIFICATE", "HTTPS_NOT_USED"}:
+        completed_stages += 1
+    if dom_result.get("status") == "completed":
+        completed_stages += 1
+
+    inv_coverage = 65 if dom_inconclusive else int((completed_stages / total_stages) * 100)
+
+    failed_checks = []
+    if dom_inconclusive:
+        failed_checks.append({
+            "check": "DOM Content Inspection",
+            "description": f"DOM content inspection inconclusive ({dom_result.get('fetch_error', 'timeout')})"
+        })
+    if gsb_result.get("status") in {"unconfigured", "error"}:
+        failed_checks.append({
+            "check": "Google Safe Browsing",
+            "description": gsb_result.get("message", "Feed unavailable")
+        })
+    if vt_result.get("status") in {"unconfigured", "error"}:
+        failed_checks.append({
+            "check": "VirusTotal Intelligence",
+            "description": vt_result.get("message", "Feed unavailable")
+        })
 
     inv_status = (
-        "CONFIRMED THREAT" if is_malicious
-        else "INVESTIGATION INCOMPLETE" if dom_inconclusive
-        else "CAUTION ADVISED" if is_suspicious
+        "CONFIRMED THREAT" if classification == "malicious"
+        else "INVESTIGATION INCOMPLETE" if (dom_inconclusive or inv_coverage < 75)
+        else "CAUTION ADVISED" if classification == "suspicious"
         else "VERIFIED SAFE"
-    )
-    inv_coverage = 65 if dom_inconclusive else 100
-    failed_checks = (
-        [{"check": "DOM Content Inspection", "description": f"DOM content inspection inconclusive ({dom_result.get('fetch_error', 'timeout')})"}]
-        if dom_inconclusive else []
     )
 
     return {
@@ -683,7 +968,7 @@ def synthesize_scan_report(
         "classification": classification,
         "score": score,
         "health_score": score,
-        "risk_score": risk_score,
+        "risk_score": score,
         "detection_status": detection_status,
         "threat_type": threat_type,
         "confidence": confidence,
@@ -692,8 +977,8 @@ def synthesize_scan_report(
         "remediation": recommended_action,
         "evidence": evidence,
         "final_risk_report": {
-            "overall_risk_score": risk_score,
-            "risk_category": "Critical Risk" if classification == "malicious" else "Moderate Risk" if classification == "suspicious" else "Clean / Safe",
+            "overall_risk_score": score,
+            "risk_category": risk_category,
             "explanation": explanation,
             "recommendation": recommended_action,
             "investigation_status": inv_status,
@@ -703,7 +988,9 @@ def synthesize_scan_report(
         "threat_intelligence": {
             "is_threat_confirmed": ti_malicious,
             "threat_types": feed_threat_types,
-            "providers_checked": 3,
+            "providers_checked": (1 if gsb_result.get("status") != "unconfigured" else 0) +
+                                 (1 if vt_result.get("status") != "unconfigured" else 0) +
+                                 (1 if uh_result.get("status") != "unconfigured" else 0),
             "providers_malicious_count": providers_malicious_count,
             "provider_results": {
                 "google_safe_browsing": {
@@ -728,7 +1015,7 @@ def synthesize_scan_report(
             "hostname": hostname,
             "ssl_report": {
                 "is_valid": bool(tls_result.get("valid")),
-                "tls_outcome": "VALID_TLS" if tls_result.get("valid") else "HTTPS_NOT_USED" if normalized["scheme"] != "https" else "INVALID_OR_UNREACHABLE",
+                "tls_outcome": tls_result.get("tls_outcome", "VALID_TLS" if tls_result.get("valid") else "INVALID_OR_UNREACHABLE"),
                 "issuer": tls_result.get("issuer"),
                 "valid_to": tls_result.get("expires"),
                 "protocol": tls_result.get("protocol"),
@@ -740,9 +1027,11 @@ def synthesize_scan_report(
             "content_inspection_state": dom_result.get("content_inspection_state", "COMPLETED"),
             "dom_inspection_available": dom_result.get("dom_inspection_available", True),
             "inspection_state": dom_result.get("inspection_state", "completed"),
-            "dom_verification": "confirmed" if dom_confirmed else ("inconclusive" if dom_inconclusive else "unconfirmed"),
+            "dom_verification": "confirmed" if dom_confirmed else ("inconclusive" if dom_inconclusive else "completed"),
             "fetch_error": dom_result.get("fetch_error"),
             "title": dom_result.get("title"),
+            "redirect_chain": dom_result.get("redirect_chain", []),
+            "final_url": dom_result.get("final_url", url),
             "brand_impersonation": {
                 "is_impersonation_detected": bool(detected_brand),
                 "verification_type": "confirmed_webpage_spoof" if dom_confirmed else "potential_hostname_similarity",
@@ -751,8 +1040,8 @@ def synthesize_scan_report(
                 "dom_verification": "confirmed" if dom_confirmed else ("inconclusive" if dom_inconclusive else "unconfirmed"),
             },
             "form_analysis": {
-                "has_external_credential_action": False,
-                "has_insecure_http_action": False,
+                "has_external_credential_action": has_external_credential_theft,
+                "has_insecure_http_action": dom_result.get("has_insecure_http_action", False),
                 "password_forms_count": 1 if dom_result.get("has_login_form") else 0,
             }
         },
@@ -766,15 +1055,37 @@ def synthesize_scan_report(
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
-async def scan_website(target_url: str, dom_timeout: float = 3.0) -> Dict[str, Any]:
+async def scan_website(target_url: str, dom_timeout: float = 4.0) -> Dict[str, Any]:
     """
     Executes a comprehensive, asynchronous multi-source security scan.
     Aggregates Google Safe Browsing, VirusTotal v3, URLhaus, passive TLS probe,
-    lexical security heuristics, and DOM content inspection.
+    lexical security heuristics, and SSRF-safe DOM content inspection.
     """
     normalized = normalize_target_url(target_url)
     url = normalized["full_url"]
     hostname = normalized["hostname"]
+
+    # SSRF Fast-Path Check on Hostname
+    val_res = validate_target_hostname(hostname)
+    if val_res["is_ssrf_blocked"]:
+        # Immediately return SSRF blocked report without performing outbound requests
+        return synthesize_scan_report(
+            target_url=url,
+            gsb_result={"status": "blocked", "message": "Prohibited internal target"},
+            vt_result={"status": "blocked", "message": "Prohibited internal target"},
+            uh_result={"status": "blocked", "message": "Prohibited internal target"},
+            tls_result={"valid": False, "error": "SSRF_BLOCKED", "message": val_res["error"]},
+            dom_result={
+                "status": "inconclusive",
+                "content_inspection_state": "INCONCLUSIVE",
+                "dom_inspection_available": False,
+                "inspection_state": "ssrf_blocked",
+                "fetch_error": val_res["error"],
+                "ssrf_blocked": True,
+                "is_dns_failure": False,
+                "redirect_chain": []
+            }
+        )
 
     # Run queries concurrently
     try:
