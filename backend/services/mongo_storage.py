@@ -88,6 +88,51 @@ class MongoStorage:
                 pass
         return self._memory_store.get(f"report_{scan_id}")
 
+    async def save_shared_report(self, share_id: str, data: Dict[str, Any]):
+        record = {
+            **data,
+            "share_id": share_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "is_revoked": False,
+        }
+        self._memory_store[f"shared_{share_id}"] = record
+        if self.is_connected and self.db is not None:
+            try:
+                await self.db.shared_reports.update_one(
+                    {"share_id": share_id},
+                    {"$set": record},
+                    upsert=True
+                )
+            except Exception:
+                pass
+
+    async def get_shared_report(self, share_id: str) -> Optional[Dict[str, Any]]:
+        if self.is_connected and self.db is not None:
+            try:
+                doc = await self.db.shared_reports.find_one({"share_id": share_id}, {"_id": 0})
+                if doc:
+                    return doc
+            except Exception:
+                pass
+        return self._memory_store.get(f"shared_{share_id}")
+
+    async def revoke_shared_report(self, share_id: str) -> bool:
+        record = await self.get_shared_report(share_id)
+        if not record:
+            return False
+        record["is_revoked"] = True
+        record["revoked_at"] = datetime.now(timezone.utc).isoformat()
+        self._memory_store[f"shared_{share_id}"] = record
+        if self.is_connected and self.db is not None:
+            try:
+                await self.db.shared_reports.update_one(
+                    {"share_id": share_id},
+                    {"$set": {"is_revoked": True, "revoked_at": record["revoked_at"]}}
+                )
+            except Exception:
+                pass
+        return True
+
     async def health_status(self) -> Dict[str, Any]:
         return {
             "status": "connected" if self.is_connected else "in_memory_fallback",

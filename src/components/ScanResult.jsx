@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react'
+import { Share2 } from 'lucide-react'
 import { extractIncidents } from '../utils/incidentNormalizer'
+import ShareModal from './ShareModal'
 
 /**
  * ScanResult — Companion Hero & Security Dossier
@@ -510,6 +512,7 @@ function CleanDossierContent({
   onToggleRawJson,
   onReset,
 }) {
+  const [showShareModal, setShowShareModal] = useState(false)
   const submittedUrl = url || data?.submitted_url || data?.normalized_url || ''
 
   let targetHostname = 'UNKNOWN TARGET'
@@ -535,6 +538,8 @@ function CleanDossierContent({
   const rdap = dom?.rdap_report || {}
   const web = data?.website_assessment || {}
   const ai = data?.ai_investigation || {}
+  const aiRefinement = data?.ai_refinement || null
+  const refinedReport = aiRefinement?.refined_report || null
 
   const incidentReport = useMemo(() => extractIncidents(data), [data])
   const {
@@ -625,12 +630,15 @@ function CleanDossierContent({
 
     const impersonation = web.brand_impersonation || {}
     if (impersonation.is_impersonation_detected) {
-      const brand = impersonation.target_brand ? `mimicking ${impersonation.target_brand}` : 'mimicking a known brand'
+      const isConfirmed = impersonation.verification_type === 'confirmed_webpage_spoof' || impersonation.dom_verification === 'confirmed'
+      const brand = impersonation.target_brand || impersonation.impersonated_brand || 'Known Brand'
       list.push({
-        type: 'danger',
-        icon: '✖',
-        title: 'Brand Impersonation Detected',
-        text: `The webpage appears to be fake or spoofed, ${brand} to mislead visitors.`,
+        type: isConfirmed ? 'danger' : 'warning',
+        icon: isConfirmed ? '✖' : '▲',
+        title: isConfirmed ? `Confirmed Brand Impersonation: ${brand}` : `Potential Brand Impersonation: ${brand}`,
+        text: isConfirmed
+          ? `Webpage content inspection confirmed active brand spoofing mimicking ${brand} without domain authority.`
+          : `Hostname similarity indicates potential brand impersonation of ${brand}. Webpage-level verification is inconclusive or based on hostname similarity alone.`,
       })
     }
 
@@ -1064,6 +1072,50 @@ function CleanDossierContent({
         >
           {scoreSummary}
         </p>
+
+        {/* ── PROMINENT SHARE REPORT BUTTON (Immediately below summary) ── */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginTop: '20px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setShowShareModal(true)}
+            aria-label="Share Website Security Report"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontFamily: 'var(--font-pixel)',
+              fontSize: '0.74rem',
+              color: '#1c4a1c',
+              backgroundColor: '#ffffff',
+              border: '2px solid #2a2a2a',
+              borderRadius: '4px',
+              padding: '10px 24px',
+              cursor: 'pointer',
+              letterSpacing: '0.05em',
+              boxShadow: '3px 3px 0 #2a2a2a',
+              transition: 'transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f2f8f2'
+              e.currentTarget.style.transform = 'translate(-1px, -1px)'
+              e.currentTarget.style.boxShadow = '4px 4px 0 #2a2a2a'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff'
+              e.currentTarget.style.transform = 'translate(0, 0)'
+              e.currentTarget.style.boxShadow = '3px 3px 0 #2a2a2a'
+            }}
+          >
+            <Share2 size={15} color="#2b772b" />
+            <span>SHARE REPORT</span>
+          </button>
+        </div>
       </div>
 
       {/* ── 2. REASON BEHIND THE SCORE ── */}
@@ -1530,6 +1582,202 @@ function CleanDossierContent({
               </div>
             </div>
           )}
+
+          {/* ── 4. AI INTELLIGENCE BRIEFING ── */}
+          {refinedReport && (
+            <div
+              style={{
+                marginTop: '22px',
+                paddingTop: '18px',
+                borderTop: '2px solid #2a2a2a',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '14px',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.74rem',
+                    color: '#2a2a2a',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  <span style={{ color: '#2b772b' }}>◆</span>
+                  AI INTELLIGENCE BRIEFING
+                </div>
+
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.58rem',
+                    backgroundColor: '#edf8ec',
+                    color: '#2b772b',
+                    border: '1.5px solid #2b772b',
+                    borderRadius: '3px',
+                    padding: '3px 8px',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  <span>✨</span>
+                  <span>AI REFINED // NEURAL ENGINE</span>
+                </span>
+              </div>
+
+              {/* Executive Summary Card */}
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '2px solid #2a2a2a',
+                  borderRadius: '4px',
+                  padding: '14px 16px',
+                  boxShadow: '2px 2px 0 #2a2a2a',
+                  marginBottom: '12px',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.62rem',
+                    color: '#2b772b',
+                    letterSpacing: '0.04em',
+                    marginBottom: '6px',
+                  }}
+                >
+                  EXECUTIVE SUMMARY
+                </span>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.84rem',
+                    color: '#222',
+                    lineHeight: 1.5,
+                    margin: 0,
+                  }}
+                >
+                  {refinedReport.executive_summary}
+                </p>
+              </div>
+
+              {/* Potential Impact & Recommended Actions Grid */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                {refinedReport.potential_impact?.length > 0 && (
+                  <div
+                    style={{
+                      backgroundColor: '#fffcf5',
+                      border: '1.5px solid #c8952a',
+                      borderRadius: '4px',
+                      padding: '12px 14px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--font-pixel)',
+                        fontSize: '0.62rem',
+                        color: '#b37700',
+                        letterSpacing: '0.04em',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      POTENTIAL IMPACT
+                    </span>
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: '18px',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.78rem',
+                        color: '#444',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {refinedReport.potential_impact.map((imp, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>{imp}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {refinedReport.recommended_actions?.length > 0 && (
+                  <div
+                    style={{
+                      backgroundColor: '#f6fbf6',
+                      border: '1.5px solid #2b772b',
+                      borderRadius: '4px',
+                      padding: '12px 14px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--font-pixel)',
+                        fontSize: '0.62rem',
+                        color: '#2b772b',
+                        letterSpacing: '0.04em',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      RECOMMENDED ACTIONS
+                    </span>
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: '18px',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.78rem',
+                        color: '#222',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {refinedReport.recommended_actions.map((act, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>{act}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Investigation Limitations */}
+              {refinedReport.investigation_limitations?.length > 0 && (
+                <div
+                  style={{
+                    backgroundColor: '#f9f9f7',
+                    border: '1px solid #dcd8cf',
+                    borderRadius: '4px',
+                    padding: '10px 14px',
+                    fontSize: '0.74rem',
+                    fontFamily: 'var(--font-mono)',
+                    color: '#666',
+                  }}
+                >
+                  <span style={{ fontWeight: 'bold', color: '#444' }}>Telemetry Scope: </span>
+                  {refinedReport.investigation_limitations.join(' ')}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Raw Telemetry Toggle Drawer */}
@@ -1686,35 +1934,75 @@ function CleanDossierContent({
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={onReset}
-              style={{
-                fontFamily: 'var(--font-pixel)',
-                fontSize: '0.7rem',
-                color: '#fff',
-                backgroundColor: '#3a7a3a',
-                border: '2px solid #2a2a2a',
-                borderRadius: '3px',
-                padding: '8px 18px',
-                cursor: 'pointer',
-                letterSpacing: '0.04em',
-                boxShadow: '2px 2px 0 #2a2a2a',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#4a8a4a'
-                e.currentTarget.style.transform = 'translateY(-1px)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#3a7a3a'
-                e.currentTarget.style.transform = 'translateY(0)'
-              }}
-            >
-              ← SCAN ANOTHER WEBSITE
-            </button>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowShareModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.7rem',
+                  color: '#2a2a2a',
+                  backgroundColor: '#ffffff',
+                  border: '2px solid #2a2a2a',
+                  borderRadius: '3px',
+                  padding: '8px 18px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.04em',
+                  boxShadow: '2px 2px 0 #2a2a2a',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f4f4ee'
+                  e.currentTarget.style.transform = 'translateY(-1px)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffffff'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                }}
+              >
+                <Share2 size={13} color="#3a7a3a" />
+                SHARE REPORT
+              </button>
+
+              <button
+                type="button"
+                onClick={onReset}
+                style={{
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.7rem',
+                  color: '#fff',
+                  backgroundColor: '#3a7a3a',
+                  border: '2px solid #2a2a2a',
+                  borderRadius: '3px',
+                  padding: '8px 18px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.04em',
+                  boxShadow: '2px 2px 0 #2a2a2a',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#4a8a4a'
+                  e.currentTarget.style.transform = 'translateY(-1px)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#3a7a3a'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                }}
+              >
+                ← SCAN ANOTHER WEBSITE
+              </button>
+            </div>
           </div>
         </div>
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          reportData={data}
+          targetUrl={submittedUrl}
+        />
       </div>
     </div>
   )
@@ -1869,10 +2157,10 @@ function UnavailableContent({ onRetry, onReset, theme }) {
   return (
     <div style={{ padding: '28px 22px 28px 112px' }}>
       <div style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.85rem', color: theme.themeColor, marginBottom: '8px' }}>
-        BACKEND DISCONNECTED
+        TOO MANY INVESTIGATIONS
       </div>
       <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.86rem', color: '#444', lineHeight: 1.6, marginBottom: '16px' }}>
-        The website security investigation backend is currently unreachable. No fabricated scores or reports are generated.
+        You have performed too many investigations in a short period. Please wait a few minutes and try again shortly.
       </p>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button

@@ -6,6 +6,8 @@ import {
   getRepoScanReport
 } from '../services/repoScanService'
 import RepoReport from './RepoReport'
+import { useAuth } from '../context/AuthContext'
+import RepoRestrictedAccess from './RepoRestrictedAccess'
 
 /**
  * RepoScanner — TRUSTLENS GitHub Repository Security Workstation
@@ -19,6 +21,7 @@ const SAMPLE_EXAMPLES = [
 ]
 
 export default function RepoScanner() {
+  const { user, loading: authLoading } = useAuth()
   const [input, setInput] = useState('')
   const [valErr, setValErr] = useState('')
   const [state, setState] = useState('idle') // idle | loading_repos | selecting_repo | scanning | completed | error | unavailable
@@ -69,7 +72,7 @@ export default function RepoScanner() {
       }
     }, 1200)
 
-    return () => clearInterval(interval)
+  return () => clearInterval(interval)
   }, [state, activeScanId])
 
   function handleInputChange(e) {
@@ -164,6 +167,11 @@ export default function RepoScanner() {
   }
 
   const isWorking = state === 'loading_repos' || state === 'scanning'
+
+  // Strict Access Control: Unauthenticated visitors must see the dedicated restricted access screen
+  if (!user && !authLoading) {
+    return <RepoRestrictedAccess />
+  }
 
   
   return (

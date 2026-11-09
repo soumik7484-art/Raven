@@ -38,3 +38,8 @@ ENV/
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+.env*
+
+.vercel_python_packages/

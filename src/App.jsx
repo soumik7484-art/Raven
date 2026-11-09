@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import CinematicIntro from './components/CinematicIntro'
 import Header from './components/Header'
 import Hero from './components/Hero'
@@ -9,21 +9,61 @@ import ThreatIntel from './components/ThreatIntel'
 import About from './components/About'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
+import MinecraftCursor from './components/MinecraftCursor'
+import AuthModal from './components/AuthModal'
+import PublicReportView from './components/PublicReportView'
+import { AuthProvider, useAuth } from './context/AuthContext'
 
-export default function App() {
-  const [entered, setEntered] = useState(
+function MainApp() {
+  const { user } = useAuth()
+  const [guestEntered, setGuestEntered] = useState(
     () => sessionStorage.getItem('hm_entered') === 'true'
   )
   const [transitioning, setTransitioning] = useState(false)
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname)
+
+  useEffect(() => {
+    const handlePopState = () => setCurrentPath(window.location.pathname)
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  // If user navigated directly to an unguessable public report link e.g. /report/RVN-XXXXXXXX
+  if (currentPath.startsWith('/report/')) {
+    const shareId = currentPath.replace(/^\/report\/?/, '').split('/')[0]
+    if (shareId) {
+      return (
+        <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f0' }}>
+          <MinecraftCursor />
+          <PublicReportView
+            shareId={shareId}
+            onNavigateHome={() => {
+              window.history.pushState({}, '', '/')
+              setCurrentPath('/')
+            }}
+          />
+        </div>
+      )
+    }
+  }
+
+  // Direct authenticated users straight into the homepage; otherwise respect guest entry
+  const isEntered = Boolean(user) || guestEntered
 
   const handleEnter = () => {
     setTransitioning(true)
     setTimeout(() => {
       sessionStorage.setItem('hm_entered', 'true')
-      setEntered(true)
+      setGuestEntered(true)
       setTransitioning(false)
       window.scrollTo({ top: 0, behavior: 'instant' })
     }, 300)
+  }
+
+  const handleSignOut = () => {
+    sessionStorage.removeItem('hm_entered')
+    setGuestEntered(false)
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }
 
   return (
@@ -35,8 +75,14 @@ export default function App() {
         flexDirection: 'column',
       }}
     >
-      {/* ── Cinematic Welcome Screen (First visit) ── */}
-      {!entered && (
+      {/* ── Minecraft Custom Cursor ── */}
+      <MinecraftCursor />
+
+      {/* ── Global Firebase Authentication Modal ── */}
+      <AuthModal onSuccess={handleEnter} />
+
+      {/* ── Cinematic Welcome Screen (Unauthenticated Landing Page) ── */}
+      {!isEntered && (
         <div
           style={{
             position: 'fixed',
@@ -52,7 +98,7 @@ export default function App() {
       )}
 
       {/* ── Preserved Raven Website ── */}
-      <Header />
+      <Header onSignOut={handleSignOut} />
 
       <main
         style={{
@@ -71,5 +117,13 @@ export default function App() {
 
       <Footer />
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainApp />
+    </AuthProvider>
   )
 }

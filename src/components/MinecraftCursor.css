@@ -1,0 +1,117 @@
+/* The custom cursor is enabled only on desktop / precise-pointer devices. */
+@media (hover: hover) and (pointer: fine) {
+  html,
+  body,
+  body * {
+    cursor: none !important;
+  }
+
+  .minecraft-cursor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 52px;
+    height: 60px;
+    z-index: 2147483647;
+    pointer-events: none;
+    user-select: none;
+    will-change: transform;
+    opacity: 1;
+    transition: opacity 150ms ease;
+  }
+
+  .minecraft-cursor.cursor-hidden {
+    opacity: 0;
+  }
+
+  .minecraft-cursor__image {
+    position: absolute;
+    display: block;
+    object-fit: contain;
+    max-width: none;
+    pointer-events: none;
+    user-select: none;
+    opacity: 0;
+    transform: scale(0.82);
+    transition:
+      opacity 180ms ease,
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      filter 220ms ease;
+    filter: drop-shadow(2px 3px 2px rgb(0 0 0 / 25%));
+    image-rendering: pixelated;
+  }
+
+  /* Default state: exact pickaxe artwork. */
+  .minecraft-cursor__pickaxe {
+    width: 52px;
+    height: 60px;
+    inset: 0;
+    opacity: 1;
+    transform: scale(1) rotate(-3deg);
+  }
+
+  /* Hover state: Classic pixel hand sign pointer. */
+  .minecraft-cursor__hand {
+    width: 36px;
+    height: 38px;
+    left: 17px;
+    top: 29px;
+    filter: drop-shadow(2px 2px 0px rgba(0, 0, 0, 0.35));
+  }
+
+  .minecraft-cursor.hovering .minecraft-cursor__pickaxe {
+    opacity: 0;
+    transform: scale(0.75) rotate(-10deg);
+  }
+
+  .minecraft-cursor.hovering .minecraft-cursor__hand {
+    opacity: 1;
+    transform: scale(1);
+    filter: drop-shadow(2px 2px 0px rgba(0, 0, 0, 0.35));
+  }
+
+  /* Pixel trail */
+  .pixel-particle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 999998;
+    width: 7px;
+    height: 7px;
+    background: #ffb45e;
+    image-rendering: pixelated;
+    animation: pixelFade 0.65s steps(6) forwards;
+  }
+
+  /* Pixel disappearing animation */
+  @keyframes pixelFade {
+    0% {
+      opacity: 1;
+      transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+      opacity: 0.8;
+    }
+
+    100% {
+      opacity: 0;
+      transform:
+        translate(var(--move-x), var(--move-y))
+        scale(0);
+    }
+  }
+}
+
+/* Keep normal system cursors and touch behaviour on phones/tablets. */
+@media (hover: none), (pointer: coarse) {
+  .minecraft-cursor {
+    display: none !important;
+  }
+}
+
+/* Respect reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+  .minecraft-cursor__image {
+    transition: opacity 100ms linear;
+  }
+}

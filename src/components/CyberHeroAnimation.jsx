@@ -195,6 +195,9 @@ export default function CyberHeroAnimation() {
         muted
         loop
         playsInline
+        disablePictureInPicture
+        disableRemotePlayback
+        controlsList="nodownload nofullscreen noremoteplayback noplaybackrate"
         preload="auto"
         style={{ display: 'none' }}
       >

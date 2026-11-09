@@ -10,18 +10,17 @@ function mapRepoResultToWarriorStatus(report) {
   if (!report || !report.security_health) return 'idle'
   const { risk_category, overall_score } = report.security_health
 
-  // Strict backend-authoritative risk mapping
-  // Consistent with URL analyzer: greater number = higher risk
-  if (risk_category === 'CRITICAL_RISK' || risk_category === 'HIGH_RISK' || overall_score >= 70) {
-    return 'red' // Defensive warrior
+  // 1-100 scoring model: 1 is okay/green, 25-50 is normal/yellow, 100 is dangerous/red
+  if (risk_category === 'CRITICAL_RISK' || risk_category === 'HIGH_RISK' || overall_score >= 60) {
+    return 'red' // Defensive warrior (dangerous)
   }
-  if (risk_category === 'NEEDS_ATTENTION' || risk_category === 'INCONCLUSIVE' || overall_score >= 25) {
-    return 'yellow' // Thinking warrior
+  if (risk_category === 'NEEDS_ATTENTION' || risk_category === 'INCONCLUSIVE' || (overall_score >= 20 && overall_score < 60)) {
+    return 'yellow' // Thinking warrior (normal / needs attention)
   }
-  if (risk_category === 'HEALTHY' || overall_score < 25) {
-    return 'green' // Happy warrior
+  if (risk_category === 'HEALTHY' || overall_score <= 20) {
+    return 'green' // Happy warrior (1/100 is green & okay)
   }
-  return 'yellow'
+  return 'green'
 }
 
 export default function RepoReport({ report, onReset, devWarriorStatus = null }) {

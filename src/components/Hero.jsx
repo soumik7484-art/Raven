@@ -19,12 +19,18 @@ export default function Hero() {
     video.muted = true
     video.defaultMuted = true
     video.volume = 0
+    video.disablePictureInPicture = true
+    video.setAttribute('disablepictureinpicture', '')
+    video.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback noplaybackrate')
     video.setAttribute('muted', '')
     video.setAttribute('playsinline', '')
     video.setAttribute('webkit-playsinline', '')
     video.onvolumechange = () => {
       video.muted = true
       video.volume = 0
+    }
+    if (typeof document !== 'undefined' && document.pictureInPictureElement === video) {
+      document.exitPictureInPicture().catch(() => {})
     }
     const p = video.play()
     if (p !== undefined) p.catch(() => {})
@@ -48,6 +54,10 @@ export default function Hero() {
         muted
         loop
         playsInline
+        disablePictureInPicture
+        disableRemotePlayback
+        controlsList="nodownload nofullscreen noremoteplayback noplaybackrate"
+        onContextMenu={(e) => e.preventDefault()}
         aria-hidden="true"
         onVolumeChange={(e) => {
           e.currentTarget.muted = true
@@ -60,6 +70,7 @@ export default function Hero() {
           height: '100%',
           objectFit: 'cover',
           pointerEvents: 'none',
+          userSelect: 'none',
           zIndex: 0,
         }}
       >

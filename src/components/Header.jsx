@@ -1,13 +1,14 @@
 import { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 
 /**
- * Header � Raven
+ * Header — Raven
  *
- * Sticky frosted-glass nav:
- *   Left:   Pixel-art logomark + wordmark (click to scroll to top)
- *   Centre: Responsive clean navigation (desktop)
- *   Right:  "Check a Website" CTA + mobile hamburger toggle
- *   Mobile: Fullscreen slide-down drawer with quick navigation links
+ * Fully Responsive Multi-Device Navigation:
+ *   Desktop (>1340px): Full inline nav links + Logo + CTA + Welcome Badge + Sign Out
+ *   Tablet (769px - 1340px): Logo + CTA + Welcome Badge + Three-Lines Menu Button
+ *   Phone (<=768px): Logo + Avatar + Three-Lines Menu Button
+ *   Drawer: Accessible on all devices via Three-Lines Menu with user operative card & quick actions
  */
 
 const NAV_LINKS = [
@@ -19,8 +20,18 @@ const NAV_LINKS = [
   { label: 'About',        href: '#about' },
 ]
 
-export default function Header() {
+export default function Header({ onSignOut }) {
+  const { user, userProfile, logout, openAuthModal } = useAuth()
   const [open, setOpen] = useState(false)
+
+  async function handleSignOut() {
+    try {
+      await logout()
+      if (onSignOut) onSignOut()
+    } catch (e) {
+      console.error('Logout error:', e)
+    }
+  }
 
   const scrollToHome = (e) => {
     e.preventDefault()
@@ -30,6 +41,9 @@ export default function Header() {
     } catch {}
   }
 
+  const displayName = userProfile?.name || user?.displayName || user?.email?.split('@')[0] || 'Agent'
+  const displayAvatar = userProfile?.avatar || user?.photoURL || '/avatars/coder_boy.jpg'
+
   return (
     <>
       <header
@@ -37,7 +51,7 @@ export default function Header() {
           position: 'sticky',
           top: 0,
           zIndex: 100,
-          backgroundColor: 'rgba(250,250,247,0.95)',
+          backgroundColor: 'rgba(250,250,247,0.96)',
           backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
           borderBottom: '1px solid var(--color-border-light)',
@@ -45,99 +59,126 @@ export default function Header() {
         }}
       >
         <div
-          className="section-container"
+          className="header-bar-container"
           style={{
             height: '64px',
+            maxWidth: '1560px',
+            margin: '0 auto',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '1rem',
-            paddingLeft: 'clamp(1rem, 3vw, 2rem)',
-            paddingRight: 'clamp(1rem, 3vw, 2rem)',
+            paddingLeft: 'clamp(0.75rem, 2vw, 2rem)',
+            paddingRight: 'clamp(0.75rem, 2vw, 2rem)',
             boxSizing: 'border-box',
+            gap: '12px',
           }}
         >
-          {/* -- Logo -- */}
-          <a
-            href="#home"
-            onClick={scrollToHome}
-            aria-label="Raven home"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              textDecoration: 'none',
-              flexShrink: 0,
-              cursor: 'pointer',
-            }}
-          >
-            <img
-              src="/assets/raven-emblem-new.jpg"
-              alt="Raven Logo"
-              style={{
-                height: '56px',
-                width: 'auto',
-                objectFit: 'contain',
-                display: 'block',
-                mixBlendMode: 'multiply',
-              }}
-            />
-            <img
-              src="/assets/raven-wordmark-new.jpg"
-              alt="RAVEN"
-              style={{
-                height: '36px',
-                width: 'auto',
-                objectFit: 'contain',
-                display: 'block',
-                mixBlendMode: 'multiply',
-              }}
-            />
-          </a>
-
-          {/* -- Desktop Nav (Hidden below 1200px to guarantee ample spacing and zero collision) -- */}
-          <nav
-            aria-label="Main navigation"
-            className="header-desktop-nav"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 'clamp(3px, 0.5vw, 8px)',
-              flex: 1,
-              minWidth: 0,
-              margin: '0 16px',
-            }}
-          >
-            {NAV_LINKS.map((link) => (
-              <NavLink key={link.href} href={link.href} label={link.label} />
-            ))}
-          </nav>
-
-          {/* -- Right Actions: CTA + Hamburger -- */}
+          {/* ── LEFT: Logo + Desktop Navigation ── */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
+              gap: 'clamp(10px, 1.2vw, 16px)',
               flexShrink: 0,
-              marginLeft: '12px',
             }}
           >
+            {/* Logo (Emblem + Wordmark) */}
+            <a
+              href="#home"
+              onClick={scrollToHome}
+              aria-label="Raven home"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textDecoration: 'none',
+                flexShrink: 0,
+                cursor: 'pointer',
+              }}
+            >
+              <img
+                src="/assets/raven-emblem-new.jpg"
+                alt="Raven Logo"
+                style={{
+                  height: '38px',
+                  width: 'auto',
+                  objectFit: 'contain',
+                  display: 'block',
+                  mixBlendMode: 'multiply',
+                }}
+              />
+              <img
+                src="/assets/raven-wordmark-new.jpg"
+                alt="RAVEN"
+                style={{
+                  height: '24px',
+                  width: 'auto',
+                  objectFit: 'contain',
+                  display: 'block',
+                  mixBlendMode: 'multiply',
+                }}
+              />
+            </a>
+
+            {/* Desktop Navigation Links */}
+            <div
+              className="header-desktop-nav-wrap"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'clamp(8px, 1vw, 14px)',
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: '1px',
+                  height: '20px',
+                  backgroundColor: '#dcd8cf',
+                  flexShrink: 0,
+                }}
+              />
+
+              <nav
+                aria-label="Main navigation"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  flexShrink: 0,
+                }}
+              >
+                {NAV_LINKS.map((link) => (
+                  <NavLink key={link.href} href={link.href} label={link.label} />
+                ))}
+              </nav>
+            </div>
+          </div>
+
+          {/* ── RIGHT: Actions + Welcome + Hamburger Button ── */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexShrink: 0,
+            }}
+          >
+            {/* Check a Website CTA (Visible on Desktop & Tablet) */}
             <a
               href="#scanner"
               className="header-cta-btn"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
+                gap: '6px',
                 backgroundColor: 'var(--color-forest)',
                 color: '#fff',
                 fontFamily: 'var(--font-display)',
-                fontSize: '0.74rem',
+                fontSize: '0.72rem',
                 fontWeight: 700,
                 letterSpacing: '0.04em',
-                padding: '9px 15px',
+                padding: '8px 13px',
                 borderRadius: '5px',
                 textDecoration: 'none',
                 border: '2px solid var(--color-forest-dark)',
@@ -159,22 +200,152 @@ export default function Header() {
               <span>Check a Website</span>
             </a>
 
-            {/* Hamburger Button (shown below 1200px) */}
+            {/* Authenticated State: Welcome [Name] Badge + Avatar */}
+            {user && (
+              <div
+                className="header-user-welcome"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  backgroundColor: '#ffffff',
+                  border: '2px solid #2a2a2a',
+                  borderRadius: '4px',
+                  boxShadow: '2px 2px 0 #2a2a2a',
+                  padding: '4px 8px 4px 5px',
+                  flexShrink: 0,
+                }}
+              >
+                <img
+                  src={displayAvatar}
+                  alt={displayName}
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '3px',
+                    objectFit: 'cover',
+                    border: '1.5px solid #2b772b',
+                    imageRendering: 'pixelated',
+                    display: 'block',
+                  }}
+                />
+                <span
+                  className="header-welcome-text"
+                  style={{
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.62rem',
+                    color: '#2b772b',
+                    letterSpacing: '0.03em',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '180px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: 'inline-block',
+                  }}
+                  title={`Welcome, ${displayName}`}
+                >
+                  Welcome, {displayName}
+                </span>
+              </div>
+            )}
+
+            {/* Desktop-only Sign Out / Sign In Button (>1340px) */}
+            <div className="header-desktop-auth-btn">
+              {user ? (
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  title={`Signed in as ${displayName}`}
+                  aria-label="Sign out"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: '#ffffff',
+                    color: '#cc2222',
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.62rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    padding: '8px 11px',
+                    borderRadius: '4px',
+                    border: '2px solid #2a2a2a',
+                    boxShadow: '2px 2px 0 #2a2a2a',
+                    cursor: 'pointer',
+                    transition: 'transform 0.1s ease, box-shadow 0.1s ease',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#fff0f0'
+                    e.currentTarget.style.transform = 'translate(-1px, -1px)'
+                    e.currentTarget.style.boxShadow = '3px 3px 0 #2a2a2a'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ffffff'
+                    e.currentTarget.style.transform = 'translate(0, 0)'
+                    e.currentTarget.style.boxShadow = '2px 2px 0 #2a2a2a'
+                  }}
+                >
+                  <LogoutPixelIcon />
+                  <span>SIGN OUT</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openAuthModal('signin')}
+                  aria-label="Sign in"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: '#ffffff',
+                    color: '#2b772b',
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.62rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    border: '2px solid #2a2a2a',
+                    boxShadow: '2px 2px 0 #2a2a2a',
+                    cursor: 'pointer',
+                    transition: 'transform 0.1s ease, box-shadow 0.1s ease',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f4fbf4'
+                    e.currentTarget.style.transform = 'translate(-1px, -1px)'
+                    e.currentTarget.style.boxShadow = '3px 3px 0 #2a2a2a'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ffffff'
+                    e.currentTarget.style.transform = 'translate(0, 0)'
+                    e.currentTarget.style.boxShadow = '2px 2px 0 #2a2a2a'
+                  }}
+                >
+                  <span>▶</span>
+                  <span>SIGN IN</span>
+                </button>
+              )}
+            </div>
+
+            {/* ── THREE-LINES HAMBURGER BUTTON (Phone & Tablet) ── */}
             <button
               type="button"
-              aria-label={open ? 'Close menu' : 'Open menu'}
+              aria-label={open ? 'Close navigation directory' : 'Open navigation directory'}
               aria-expanded={open}
               onClick={() => setOpen(!open)}
-              className="header-mobile-toggle"
+              className="header-three-lines-btn"
               style={{
-                background: '#ffffff',
+                backgroundColor: '#ffffff',
                 border: '2px solid #2a2a2a',
                 borderRadius: '4px',
                 boxShadow: '2px 2px 0 #2a2a2a',
                 cursor: 'pointer',
                 padding: '6px 8px',
-                color: 'var(--color-charcoal)',
-                display: 'none',
+                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'transform 0.1s ease, box-shadow 0.1s ease',
@@ -188,13 +359,13 @@ export default function Header() {
                 e.currentTarget.style.boxShadow = '2px 2px 0 #2a2a2a'
               }}
             >
-              {open ? <XIcon /> : <MenuIcon />}
+              {open ? <CloseIcon /> : <ThreeLinesIcon />}
             </button>
           </div>
         </div>
       </header>
 
-      {/* -- Mobile & Tablet Drawer (Full Screen / Smooth Slide) -- */}
+      {/* ── NAVIGATION DIRECTORY DRAWER (PHONE & TABLET) ── */}
       {open && (
         <div
           role="dialog"
@@ -203,116 +374,195 @@ export default function Header() {
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 99,
-            backgroundColor: 'rgba(250,250,247,0.98)',
-            backdropFilter: 'blur(18px)',
+            zIndex: 9999,
+            backgroundColor: 'rgba(12, 18, 12, 0.76)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             display: 'flex',
             flexDirection: 'column',
+            alignItems: 'center',
             paddingTop: '74px',
-            paddingLeft: '1.5rem',
-            paddingRight: '1.5rem',
-            paddingBottom: '2rem',
+            paddingLeft: '1rem',
+            paddingRight: '1rem',
+            paddingBottom: '2.5rem',
             overflowY: 'auto',
+            animation: 'drawerFadeIn 0.18s ease-out both',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setOpen(false)
           }}
         >
-          {/* Quick Header inside drawer */}
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingBottom: '1rem',
-              borderBottom: '2px solid var(--color-border-light)',
-              marginBottom: '1rem',
+              width: '100%',
+              maxWidth: '460px',
+              backgroundColor: '#fafaf6',
+              border: '3px solid #2a2a2a',
+              borderRadius: '6px',
+              boxShadow: '6px 6px 0 #1c2e1c, 0 20px 40px rgba(0,0,0,0.5)',
+              padding: '20px 18px',
+              boxSizing: 'border-box',
+              animation: 'drawerPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both',
             }}
           >
-            <span
+            {/* Top Bar inside Drawer */}
+            <div
               style={{
-                fontFamily: 'var(--font-pixel)',
-                fontSize: '0.72rem',
-                color: 'var(--color-forest)',
-                letterSpacing: '0.08em',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingBottom: '12px',
+                borderBottom: '2px solid #e0ded4',
+                marginBottom: '16px',
               }}
             >
-              NAVIGATION DIRECTORY
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: '#888',
-              }}
-            >
-              6 MODULES
-            </span>
-          </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#2b772b', fontSize: '0.8rem' }}>■</span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.74rem',
+                    color: '#2b772b',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  RAVEN DIRECTORY
+                </span>
+              </div>
 
-          <nav aria-label="Mobile navigation" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={(e) => {
-                  setOpen(false)
-                  if (link.href === '#home') {
-                    e.preventDefault()
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                    try {
-                      window.history.pushState(null, '', '#home')
-                    } catch {}
-                  }
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+                style={{
+                  background: '#ffffff',
+                  border: '2px solid #2a2a2a',
+                  borderRadius: '3px',
+                  width: '28px',
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#2a2a2a',
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.75rem',
+                  boxShadow: '2px 2px 0 #1c2e1c',
                 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Operative Card (If Signed In) */}
+            {user && (
+              <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
+                  gap: '12px',
+                  padding: '10px 12px',
                   backgroundColor: '#ffffff',
                   border: '2px solid #2a2a2a',
                   borderRadius: '4px',
                   boxShadow: '2px 2px 0 #2a2a2a',
-                  fontFamily: 'var(--font-pixel)',
-                  fontSize: '0.75rem',
-                  fontWeight: 500,
-                  color: 'var(--color-charcoal)',
-                  textDecoration: 'none',
-                  letterSpacing: '0.04em',
-                  marginBottom: '8px',
-                  transition: 'transform 0.12s ease',
+                  marginBottom: '16px',
                 }}
               >
-                <span>{link.label}</span>
-                <span style={{ color: 'var(--color-forest)', fontSize: '0.8rem' }}>?</span>
-              </a>
-            ))}
+                <img
+                  src={displayAvatar}
+                  alt={displayName}
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '4px',
+                    objectFit: 'cover',
+                    border: '1.5px solid #2b772b',
+                    imageRendering: 'pixelated',
+                    display: 'block',
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      display: 'block',
+                      fontFamily: 'var(--font-pixel)',
+                      fontSize: '0.72rem',
+                      color: '#2b772b',
+                      letterSpacing: '0.03em',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    Welcome, {displayName}
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.64rem',
+                      color: '#666',
+                      marginTop: '2px',
+                    }}
+                  >
+                    <span style={{ color: '#2b772b' }}>●</span> VERIFIED OPERATIVE
+                  </span>
+                </div>
+              </div>
+            )}
 
-            {/* Quick action buttons in drawer */}
-            <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <a
-                href="#repo-scanner"
-                onClick={() => setOpen(false)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  backgroundColor: '#ffffff',
-                  color: '#111',
-                  fontFamily: 'var(--font-pixel)',
-                  fontSize: '0.72rem',
-                  fontWeight: 600,
-                  padding: '13px 20px',
-                  borderRadius: '4px',
-                  textDecoration: 'none',
-                  textAlign: 'center',
-                  border: '2px solid #2a2a2a',
-                  boxShadow: '3px 3px 0 #2a2a2a',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                <span>� CHECK REPOSITORY</span>
-              </a>
+            {/* Navigation Links Directory */}
+            <nav aria-label="Directory navigation" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {NAV_LINKS.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={(e) => {
+                    setOpen(false)
+                    if (link.href === '#home') {
+                      e.preventDefault()
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                      try {
+                        window.history.pushState(null, '', '#home')
+                      } catch {}
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    backgroundColor: '#ffffff',
+                    border: '2px solid #2a2a2a',
+                    borderRadius: '4px',
+                    boxShadow: '2px 2px 0 #2a2a2a',
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.72rem',
+                    color: '#222',
+                    textDecoration: 'none',
+                    letterSpacing: '0.04em',
+                    transition: 'transform 0.1s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f5faf5'
+                    e.currentTarget.style.transform = 'translate(-1px, -1px)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ffffff'
+                    e.currentTarget.style.transform = 'translate(0, 0)'
+                  }}
+                >
+                  <span>{link.label}</span>
+                  <span style={{ color: '#2b772b', fontSize: '0.74rem' }}>▶</span>
+                </a>
+              ))}
+            </nav>
 
+            {/* Quick Action Options */}
+            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <a
                 href="#scanner"
                 onClick={() => setOpen(false)}
@@ -325,52 +575,165 @@ export default function Header() {
                   color: '#fff',
                   fontFamily: 'var(--font-pixel)',
                   fontSize: '0.72rem',
-                  fontWeight: 600,
-                  padding: '13px 20px',
+                  padding: '12px 16px',
                   borderRadius: '4px',
                   textDecoration: 'none',
-                  textAlign: 'center',
-                  border: '2px solid #1f551f',
-                  boxShadow: '3px 3px 0 #1f551f',
+                  border: '2px solid #1c551c',
+                  boxShadow: '3px 3px 0 #1c551c',
                   letterSpacing: '0.04em',
                 }}
               >
-                <span>? CHECK WEBSITE</span>
+                <ShieldMiniIcon />
+                <span>CHECK A WEBSITE</span>
               </a>
+
+              <a
+                href="#repo-scanner"
+                onClick={() => setOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  backgroundColor: '#ffffff',
+                  color: '#111',
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '0.72rem',
+                  padding: '12px 16px',
+                  borderRadius: '4px',
+                  textDecoration: 'none',
+                  border: '2px solid #2a2a2a',
+                  boxShadow: '3px 3px 0 #2a2a2a',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                <span>🛡 CHECK REPOSITORY</span>
+              </a>
+
+              {user ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    handleSignOut()
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    backgroundColor: '#fff0f0',
+                    color: '#cc2222',
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.72rem',
+                    padding: '12px 16px',
+                    borderRadius: '4px',
+                    border: '2px solid #cc2222',
+                    boxShadow: '3px 3px 0 #2a2a2a',
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                    width: '100%',
+                  }}
+                >
+                  <LogoutPixelIcon />
+                  <span>SIGN OUT ({displayName})</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    openAuthModal('signin')
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    backgroundColor: '#ffffff',
+                    color: '#2b772b',
+                    fontFamily: 'var(--font-pixel)',
+                    fontSize: '0.72rem',
+                    padding: '12px 16px',
+                    borderRadius: '4px',
+                    border: '2px solid #2b772b',
+                    boxShadow: '3px 3px 0 #2a2a2a',
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                    width: '100%',
+                  }}
+                >
+                  <span>▶</span>
+                  <span>SIGN IN / REGISTER</span>
+                </button>
+              )}
             </div>
-          </nav>
+          </div>
         </div>
       )}
 
-      {/* -- Precise Responsive Breakpoints -- */}
+      {/* ── Multi-Device Responsive Breakpoint System ── */}
       <style>{`
-        @media (max-width: 1200px) {
-          .header-desktop-nav {
-            display: none !important;
-          }
-          .header-mobile-toggle {
+        /* Desktop: >= 1260px */
+        @media (min-width: 1260px) {
+          .header-desktop-nav-wrap {
             display: flex !important;
           }
-        }
-        @media (min-width: 1201px) {
-          .header-desktop-nav {
-            display: flex !important;
+          .header-desktop-auth-btn {
+            display: block !important;
           }
-          .header-mobile-toggle {
+          .header-three-lines-btn {
             display: none !important;
           }
         }
-        @media (max-width: 540px) {
+
+        /* Tablet & Small Desktop: < 1260px */
+        @media (max-width: 1259px) {
+          .header-desktop-nav-wrap {
+            display: none !important;
+          }
+          .header-desktop-auth-btn {
+            display: none !important;
+          }
+          .header-three-lines-btn {
+            display: flex !important;
+          }
+        }
+
+        /* Small Tablet & Mobile: <= 920px */
+        @media (max-width: 920px) {
+          .header-welcome-text {
+            max-width: 110px !important;
+          }
+        }
+
+        /* Phone: <= 640px */
+        @media (max-width: 640px) {
           .header-cta-btn {
-            display: none !important;
+            display: none !important; /* Full prominent CTA is inside the three lines drawer */
           }
+          .header-welcome-text {
+            display: none !important; /* Avatar-only icon on phone bar, full name inside drawer */
+          }
+          .header-user-welcome {
+            padding: 3px !important;
+          }
+        }
+
+        @keyframes drawerFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes drawerPopIn {
+          from { opacity: 0; transform: scale(0.96) translateY(-8px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
       `}</style>
     </>
   )
 }
 
-/* -- Desktop Nav Link with Compact, Balanced Spacing -- */
+/* -- Desktop Nav Link with Clean, Balanced Spacing -- */
 function NavLink({ href, label }) {
   const handleClick = (e) => {
     if (href === '#home') {
@@ -389,7 +752,7 @@ function NavLink({ href, label }) {
       style={{
         padding: '5px 8px',
         fontFamily: 'var(--font-pixel)',
-        fontSize: 'clamp(0.58rem, 0.7vw, 0.64rem)',
+        fontSize: '0.64rem',
         fontWeight: 400,
         color: '#444',
         textDecoration: 'none',
@@ -414,36 +777,6 @@ function NavLink({ href, label }) {
   )
 }
 
-/* -- Pixel-Art Block Logomark -- */
-function PixelLogoMark() {
-  return (
-    <svg
-      width="28" height="28"
-      viewBox="0 0 36 36"
-      fill="none"
-      aria-hidden="true"
-      style={{ flexShrink: 0, imageRendering: 'pixelated' }}
-    >
-      <rect width="36" height="36" rx="6" fill="#527A50" />
-      <rect x="2" y="2" width="16" height="8" rx="1" fill="rgba(255,255,255,0.15)" />
-      <rect x="20" y="4" width="14" height="6" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="11" y="8"  width="4" height="4" fill="white" opacity="0.9" />
-      <rect x="15" y="8"  width="4" height="4" fill="white" opacity="0.9" />
-      <rect x="19" y="8"  width="4" height="4" fill="white" opacity="0.9" />
-      <rect x="9"  y="12" width="4" height="4" fill="white" opacity="0.9" />
-      <rect x="13" y="12" width="8" height="4" fill="white" opacity="0.9" />
-      <rect x="21" y="12" width="4" height="4" fill="white" opacity="0.9" />
-      <rect x="11" y="16" width="4" height="4" fill="white" opacity="0.9" />
-      <rect x="15" y="16" width="4" height="4" fill="white" opacity="0.9" />
-      <rect x="19" y="16" width="4" height="4" fill="white" opacity="0.9" />
-      <rect x="13" y="20" width="4" height="4" fill="white" opacity="0.7" />
-      <rect x="17" y="20" width="4" height="4" fill="white" opacity="0.7" />
-      <rect x="15" y="24" width="4" height="4" fill="white" opacity="0.5" />
-      <rect x="0" y="30" width="36" height="6" rx="0" fill="rgba(0,0,0,0.18)" />
-    </svg>
-  )
-}
-
 function ShieldMiniIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
@@ -454,18 +787,31 @@ function ShieldMiniIcon() {
   )
 }
 
-function MenuIcon() {
+/* Three Horizontal Lines Hamburger Icon */
+function ThreeLinesIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="M3 5h14M3 10h14M3 15h14" stroke="#111" strokeWidth="2" strokeLinecap="round" />
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <rect x="1.5" y="3" width="15" height="2.2" rx="0.5" fill="#222" />
+      <rect x="1.5" y="7.9" width="15" height="2.2" rx="0.5" fill="#222" />
+      <rect x="1.5" y="12.8" width="15" height="2.2" rx="0.5" fill="#222" />
     </svg>
   )
 }
 
-function XIcon() {
+function CloseIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="M4 4l12 12M16 4L4 16" stroke="#111" strokeWidth="2" strokeLinecap="round" />
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <path d="M3.5 3.5L14.5 14.5M14.5 3.5L3.5 14.5" stroke="#222" strokeWidth="2.2" strokeLinecap="square" />
+    </svg>
+  )
+}
+
+function LogoutPixelIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M6 2H3C2.44772 2 2 2.44772 2 3V13C2 13.5523 2.44772 14 3 14H6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
+      <path d="M10 11L13 8L10 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
+      <path d="M5 8H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
     </svg>
   )
 }

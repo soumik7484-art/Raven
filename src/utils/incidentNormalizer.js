@@ -11,6 +11,11 @@
  * - TLS timeouts/unreachability are categorized as UNKNOWN/unavailable, NEVER as certificate failures.
  * - Uninspected executable/archive links are observations, NOT independent high/critical malware incidents.
  * - Deduplicates multi-scanner reports while preserving all attributing sources.
+ * - Every generated security finding is included in incident aggregation and severity counters.
+ * - Brand impersonation findings must not be excluded from unique finding counts.
+ * - Hostname similarity alone is labeled "Potential Brand Impersonation" rather than confirmed webpage spoofing.
+ * - When DOM inspection is unavailable or times out, explicitly mark webpage-level verification as inconclusive.
+ * - Threat intelligence results are kept independent from hostname-based detection.
  * - Accurately reflects failed and unavailable telemetry (DNS, TLS, Content inspection).
  */
 
@@ -31,14 +36,14 @@ export function extractIncidents(data) {
   const observations = []
   const missingChecks = []
 
-  const submittedUrl = data.submitted_url || data.normalized_url || ''
+  const submittedUrl = data.submitted_url || data.normalized_url || data.url || ''
   const domainIntel = data.domain_intelligence || {}
   const threatIntel = data.threat_intelligence || {}
   const webAssess = data.website_assessment || {}
   const finalRisk = data.final_risk_report || {}
-  const hostname = domainIntel.hostname || ''
+  const hostname = domainIntel.hostname || data.domain || ''
 
-  // ── 1. Check for Incomplete / Degraded Intelligence Feeds ──
+  // ── 1. Check for Incomplete / Degraded Telemetry ──
   // DNS Check
   const dnsReport = domainIntel.dns_report || {}
   const dnsStatus = String(dnsReport.status || '').toLowerCase()
@@ -75,12 +80,13 @@ export function extractIncidents(data) {
     webAssess.is_accessible === false ||
     contentState === 'INSPECTION_UNAVAILABLE' ||
     contentState === 'INSPECTION_ERROR' ||
-    ['blocked', 'timeout', 'unavailable', 'partial', 'error'].includes(webAssess.inspection_state)
+    contentState === 'INCONCLUSIVE' ||
+    ['blocked', 'timeout', 'unavailable', 'partial', 'error', 'inconclusive'].includes(webAssess.inspection_state)
   )
 
   if (isDomUnavailable) {
     const errDetail = webAssess.fetch_error || (webAssess.status_code ? `HTTP ${webAssess.status_code}` : webAssess.inspection_state || 'connection unavailable or timed out')
-    missingChecks.push(`Webpage DOM content inspection (${errDetail})`)
+    missingChecks.push(`Webpage DOM content inspection (inconclusive - ${errDetail})`)
   }
 
   // Include any backend failed check messages
@@ -91,7 +97,7 @@ export function extractIncidents(data) {
     }
   })
 
-  // ── 2. Threat Intelligence Incidents ──
+  // ── 2. Threat Intelligence Incidents (Independent from Hostname Heuristics) ──
   const isThreatConfirmed = Boolean(threatIntel.is_threat_confirmed)
   const providerResults = threatIntel.provider_results || {}
   const maliciousProviders = []
@@ -153,25 +159,45 @@ export function extractIncidents(data) {
     })
   }
 
-  // ── 3. Webpage Assessment Incidents & Form Classification ──
-  if (!isDomUnavailable) {
-    const brandInfo = webAssess.brand_impersonation || {}
-    if (brandInfo.is_impersonation_detected) {
-      const brand = brandInfo.impersonated_brand || brandInfo.target_brand || 'Known Brand'
+  // ── 3. Brand Impersonation Findings (Never Excluded; Differentiate Potential vs Confirmed) ──
+  const brandInfo = webAssess.brand_impersonation || {}
+  const domainRisks = Array.isArray(domainIntel.risk_indicators) ? domainIntel.risk_indicators : []
+  const hostnameBrandFlag = domainRisks.find((r) => /potential brand impersonation|impersonat/i.test(r))
+  const isBrandDetected = Boolean(brandInfo.is_impersonation_detected || hostnameBrandFlag)
+
+  if (isBrandDetected) {
+    const brand = brandInfo.impersonated_brand || brandInfo.target_brand || (hostnameBrandFlag ? (hostnameBrandFlag.match(/'([^']+)'/) || [])[1] : null) || 'Known Brand'
+    const isConfirmedWebpageSpoof = !isDomUnavailable && brandInfo.verification_type === 'confirmed_webpage_spoof'
+
+    if (isConfirmedWebpageSpoof) {
       rawIncidents.push({
-        id: 'brand-impersonation',
-        title: `Brand Impersonation / Spoofing: ${brand}`,
+        id: 'brand-impersonation-confirmed',
+        title: `Confirmed Brand Impersonation: ${brand}`,
         severity: 'CRITICAL',
         status: 'CONFIRMED',
-        description: `The webpage mimics the branding, logos, and structure of ${brand} without domain authority.`,
-        sources: ['Brand Security Analyzer'],
+        description: `Webpage content inspection confirmed active brand spoofing mimicking ${brand} without domain authority.`,
+        sources: ['Brand Security Analyzer', 'DOM Content Inspector'],
+        affected_asset: hostname || submittedUrl,
+      })
+    } else {
+      // Hostname similarity alone or DOM inspection inconclusive/unavailable
+      const domNotice = isDomUnavailable ? ' (webpage DOM verification inconclusive)' : ''
+      rawIncidents.push({
+        id: 'brand-impersonation-potential',
+        title: `Potential Brand Impersonation: ${brand}`,
+        severity: 'HIGH',
+        status: 'SUSPICIOUS',
+        description: `Hostname references brand '${brand}' without authoritative domain affiliation${domNotice}.`,
+        sources: ['Domain Heuristics Engine', 'Brand Security Analyzer'],
         affected_asset: hostname || submittedUrl,
       })
     }
+  }
 
+  // ── 4. Webpage Assessment Incidents & Form Classification ──
+  if (!isDomUnavailable) {
     const formAnalysis = webAssess.form_analysis || {}
     if (formAnalysis.has_external_credential_action) {
-      // External form WITH password or sensitive credential entry
       rawIncidents.push({
         id: 'form-external-credential',
         title: 'External Credential Exfiltration Action',
@@ -182,7 +208,6 @@ export function extractIncidents(data) {
         affected_asset: submittedUrl,
       })
     } else if (formAnalysis.has_insecure_http_action) {
-      // Form transmits credentials over unencrypted HTTP
       rawIncidents.push({
         id: 'form-insecure-http',
         title: 'Cleartext Credential Transmission over HTTP',
@@ -197,7 +222,7 @@ export function extractIncidents(data) {
       observations.push({
         id: 'obs-form-external-handler',
         title: 'Cross-Domain Form Endpoint (Non-Credential)',
-        description: 'Webpage contains form action submitting non-credential data (e.g. newsletter or search) to an external service over secure HTTPS.',
+        description: 'Webpage contains form action submitting non-credential data to an external service over secure HTTPS.',
         asset: submittedUrl,
       })
     }
@@ -215,7 +240,7 @@ export function extractIncidents(data) {
     }
   }
 
-  // ── 4. Executable Link Classification ──
+  // ── 5. Executable Link Classification ──
   const execLinks = Array.isArray(webAssess.executable_links) ? webAssess.executable_links : []
   if (execLinks.length > 0) {
     if (isMalware) {
@@ -235,7 +260,7 @@ export function extractIncidents(data) {
     }
   }
 
-  // ── 5. Domain & TLS Intelligence Incidents ──
+  // ── 6. Domain & TLS Intelligence Incidents ──
   const ssl = domainIntel.ssl_report || {}
   const rawStatus = String(ssl.status || '').toLowerCase()
   const isHttpUrl = submittedUrl.toLowerCase().startsWith('http://')
@@ -307,22 +332,74 @@ export function extractIncidents(data) {
     })
   }
 
-  const domainRisks = Array.isArray(domainIntel.risk_indicators) ? domainIntel.risk_indicators : []
-  const deceptiveIndicator = domainRisks.find((r) => /deceptive|typosquatting|spoofing|userinfo/i.test(r))
-  if (deceptiveIndicator) {
-    const isBrandSpoof = /deceptive hostname|spoofing|impersonat/i.test(deceptiveIndicator) || domainIntel.risk_level === 'critical'
-    rawIncidents.push({
-      id: 'domain-deceptive-syntax',
-      title: isBrandSpoof ? 'Deceptive Brand Spoofing Hostname' : 'Deceptive URL / Typosquatting Syntax',
-      severity: isBrandSpoof ? 'CRITICAL' : 'HIGH',
-      status: 'CONFIRMED',
-      description: deceptiveIndicator,
-      sources: ['Domain Intelligence Engine'],
-      affected_asset: hostname || submittedUrl,
-    })
-  }
+  // ── 7. Domain Intelligence Risk Indicators (Include Every Generated Finding) ──
+  domainRisks.forEach((indicator) => {
+    const indLower = indicator.toLowerCase()
 
-  // ── 6. Deduplication & Consolidation ──
+    if (indLower.includes('punycode') || indLower.includes('homograph')) {
+      rawIncidents.push({
+        id: 'domain-punycode-homograph',
+        title: 'Unicode Homograph / Punycode Deception',
+        severity: 'HIGH',
+        status: 'CONFIRMED',
+        description: indicator,
+        sources: ['Domain Heuristics Engine'],
+        affected_asset: hostname || submittedUrl,
+      })
+    } else if (indLower.includes('raw ip address') || indLower.includes('ip address as hostname')) {
+      rawIncidents.push({
+        id: 'domain-raw-ip-address',
+        title: 'Raw IP Hostname Address',
+        severity: 'MEDIUM',
+        status: 'CONFIRMED',
+        description: indicator,
+        sources: ['Domain Heuristics Engine'],
+        affected_asset: hostname || submittedUrl,
+      })
+    } else if (indLower.includes('abused tld') || indLower.includes('high-risk tld')) {
+      rawIncidents.push({
+        id: 'domain-high-risk-tld',
+        title: 'High-Risk Top-Level Domain Registration',
+        severity: 'LOW',
+        status: 'SUSPICIOUS',
+        description: indicator,
+        sources: ['Domain Heuristics Engine'],
+        affected_asset: hostname || submittedUrl,
+      })
+    } else if (indLower.includes('phishing keyword') || indLower.includes('credential/login keywords')) {
+      rawIncidents.push({
+        id: 'domain-phishing-tokens',
+        title: 'Deceptive Phishing Keyword Tokens',
+        severity: 'MEDIUM',
+        status: 'SUSPICIOUS',
+        description: indicator,
+        sources: ['Domain Heuristics Engine'],
+        affected_asset: hostname || submittedUrl,
+      })
+    } else if (indLower.includes('@') || indLower.includes('userinfo')) {
+      rawIncidents.push({
+        id: 'domain-userinfo-spoofing',
+        title: 'Userinfo Delimiter Spoofing (@ Character)',
+        severity: 'HIGH',
+        status: 'CONFIRMED',
+        description: indicator,
+        sources: ['Domain Heuristics Engine'],
+        affected_asset: hostname || submittedUrl,
+      })
+    } else if (indLower.includes('excessive subdomain')) {
+      rawIncidents.push({
+        id: 'domain-excessive-subdomains',
+        title: 'Excessive Subdomain Routing Depth',
+        severity: 'LOW',
+        status: 'SUSPICIOUS',
+        description: indicator,
+        sources: ['Domain Heuristics Engine'],
+        affected_asset: hostname || submittedUrl,
+      })
+    }
+  })
+
+  // ── 8. Deduplication & Consolidation ──
   const deduplicatedMap = new Map()
 
   rawIncidents.forEach((inc) => {
@@ -344,7 +421,7 @@ export function extractIncidents(data) {
   const severityOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
   incidents.sort((a, b) => (severityOrder[a.severity] ?? 4) - (severityOrder[b.severity] ?? 4))
 
-  // ── 7. Summary Calculation (Strictly Synchronized) ──
+  // ── 9. Summary Calculation (Strictly Synchronized with Unique Incident Counts) ──
   const summary = {
     total: incidents.length,
     critical: incidents.filter((i) => i.severity === 'CRITICAL').length,
