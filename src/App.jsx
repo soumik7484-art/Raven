@@ -28,23 +28,27 @@ function MainApp() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  // If user navigated directly to an unguessable public report link e.g. /report/RVN-XXXXXXXX
-  if (currentPath.startsWith('/report/')) {
-    const shareId = currentPath.replace(/^\/report\/?/, '').split('/')[0]
-    if (shareId) {
-      return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f0' }}>
-          <MinecraftCursor />
-          <PublicReportView
-            shareId={shareId}
-            onNavigateHome={() => {
-              window.history.pushState({}, '', '/')
-              setCurrentPath('/')
-            }}
-          />
-        </div>
-      )
-    }
+  // If user navigated directly to an unguessable public report link e.g. /report/RVN-XXXXXXXX or ?share=RVN-XXXXXXXX
+  const queryShareId = typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('share') || new URLSearchParams(window.location.search).get('report'))
+    : null
+  const shareId = currentPath.startsWith('/report/')
+    ? currentPath.replace(/^\/report\/?/, '').split('/')[0]
+    : queryShareId
+
+  if (shareId) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f0' }}>
+        <MinecraftCursor />
+        <PublicReportView
+          shareId={shareId}
+          onNavigateHome={() => {
+            window.history.pushState({}, '', '/')
+            setCurrentPath('/')
+          }}
+        />
+      </div>
+    )
   }
 
   // Direct authenticated users straight into the homepage; otherwise respect guest entry

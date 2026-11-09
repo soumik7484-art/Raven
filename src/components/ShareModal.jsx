@@ -141,15 +141,31 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
     }
   }
 
+  const getFullShareUrl = (rawUrl, id) => {
+    if (!rawUrl && !id) return ''
+    if (rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
+      return rawUrl
+    }
+    const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : ''
+    const sharePath = rawUrl ? (rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`) : `/report/${id}`
+    return `${origin}${sharePath}`
+  }
+
   const handleCreateShareLink = async () => {
     setIsGeneratingLink(true)
     setShareError(null)
 
     try {
-      const res = await createShareReport(exportPayload, scanId)
+      const res = await createShareReport({
+        scanId,
+        targetUrl: url,
+        reportData: reportData || exportPayload,
+      })
       if (res.data?.success) {
-        setShareId(res.data.share_id)
-        setShareUrl(res.data.share_url)
+        const id = res.data.share_id || scanId
+        const fullUrl = getFullShareUrl(res.data.share_url, id)
+        setShareId(id)
+        setShareUrl(fullUrl)
       } else {
         setShareError(res.error || 'Failed to generate public link. Please try again.')
       }
@@ -160,12 +176,40 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
     }
   }
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     if (!shareUrl) return
-    navigator.clipboard.writeText(shareUrl).then(() => {
+    let succeeded = false
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl)
+        succeeded = true
+      }
+    } catch {
+      succeeded = false
+    }
+
+    if (!succeeded) {
+      try {
+        const textArea = document.createElement('textarea')
+        textArea.value = shareUrl
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-9999px'
+        textArea.style.top = '-9999px'
+        textArea.setAttribute('readonly', '')
+        document.body.appendChild(textArea)
+        textArea.select()
+        succeeded = document.execCommand('copy')
+        document.body.removeChild(textArea)
+      } catch {
+        succeeded = false
+      }
+    }
+
+    if (succeeded) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    })
+    }
   }
 
   const handleShareLinkNative = async () => {
@@ -733,6 +777,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                         type="text"
                         readOnly
                         value={shareUrl}
+                        onClick={(e) => e.target.select()}
                         style={{
                           flex: 1,
                           minWidth: 0,
