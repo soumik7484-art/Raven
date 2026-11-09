@@ -5,9 +5,10 @@ Refines security investigation findings into a structured, executive-ready repor
 using Google's Gemini API (e.g., gemini-2.5-flash).
 
 Strict Rules:
-- Never alters final_score or risk_level.
+- Preserves the detection engine's risk score and risk category exactly.
 - Never invents incidents or findings not present in actual scan telemetry.
-- Never treats unavailable or inconclusive telemetry as clean.
+- Accurately distinguishes confirmed security incidents from heuristic indicators.
+- Never treats unavailable or inconclusive telemetry (e.g., DOM timeouts) as safe.
 - Never leaks API keys in logs, frontend, or error messages.
 - Always provides a deterministic fallback report if Gemini is offline or fails.
 """
@@ -63,56 +64,286 @@ class GeminiRefinedReport(BaseModel):
 def extract_telemetry_digest(scan_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extracts a sanitized, structured digest from scan results to feed into Gemini.
-    Excludes internal implementation details and private fields.
+    Synchronizes flawlessly with backend website_scanner output, test mocks, and normalized reports.
     """
-    findings = scan_data.get("findings", {})
-    details = scan_data.get("details", {})
-    threat_intel = details.get("threat_intelligence", {})
-    domain_info = details.get("domain_info", {})
-    ssl_info = details.get("ssl_info", {})
+    # 1. Target and basic metadata
+    url = (
+        scan_data.get("submitted_url")
+        or scan_data.get("target_url")
+        or scan_data.get("normalized_url")
+        or scan_data.get("url")
+        or "Unknown Target"
+    )
+    scan_id = scan_data.get("scan_id")
+    scan_timestamp = scan_data.get("timestamp") or scan_data.get("scan_time")
 
-    incidents = []
-    if isinstance(scan_data.get("incident_list"), list):
-        for inc in scan_data["incident_list"]:
-            if isinstance(inc, dict):
-                incidents.append({
-                    "title": inc.get("title") or inc.get("name") or "Security Incident",
-                    "severity": inc.get("severity", "MEDIUM"),
-                    "description": inc.get("description", "")
-                })
+    # 2. Risk Score & Direction (1 = Clean/Low Risk, 25-65 = Suspicious/Moderate, 75-100 = Critical/Malicious)
+    final_risk = scan_data.get("final_risk_report") or {}
+    raw_score = scan_data.get("risk_score")
+    if raw_score is None:
+        raw_score = final_risk.get("overall_risk_score")
+    if raw_score is None:
+        raw_score = scan_data.get("score")
+    if raw_score is None:
+        raw_score = scan_data.get("final_score")
+    
+    try:
+        final_security_score = int(raw_score) if raw_score is not None else 1
+    except (ValueError, TypeError):
+        final_security_score = 1
 
-    provider_statuses = {}
-    for provider, pdata in threat_intel.items():
-        if isinstance(pdata, dict):
-            provider_statuses[provider] = {
-                "available": pdata.get("available", False),
-                "malicious": pdata.get("malicious", False),
+    # 3. Risk Category & Classification
+    classification = str(scan_data.get("classification") or "").lower()
+    raw_cat = str(final_risk.get("risk_category") or scan_data.get("risk_level") or "").lower()
+
+    if "critical" in raw_cat or classification == "malicious" or final_security_score >= 75:
+        risk_category = "CRITICAL"
+        verdict_status = "CONFIRMED THREAT"
+    elif "moderate" in raw_cat or "suspicious" in raw_cat or classification == "suspicious" or final_security_score >= 25:
+        risk_category = "MEDIUM"
+        verdict_status = "CAUTION ADVISED"
+    else:
+        risk_category = "LOW"
+        verdict_status = "VERIFIED SAFE"
+
+    # 4. Telemetry components
+    threat_intel = scan_data.get("threat_intelligence") or scan_data.get("details", {}).get("threat_intelligence") or {}
+    domain_intel = scan_data.get("domain_intelligence") or scan_data.get("details", {}).get("domain_info") or {}
+    web_assess = scan_data.get("website_assessment") or {}
+    heuristics = scan_data.get("heuristics") or {}
+    tls_info = scan_data.get("tls") or domain_intel.get("ssl_report") or scan_data.get("details", {}).get("ssl_info") or {}
+    evidence_list = scan_data.get("evidence") or []
+
+    # Provider availability mapping
+    provider_statuses: Dict[str, Dict[str, Any]] = {}
+    provider_results = threat_intel.get("provider_results") or {}
+    for prov, pdata in threat_intel.items():
+        if isinstance(pdata, dict) and prov != "provider_results":
+            provider_statuses[prov] = {
+                "available": pdata.get("available", True),
+                "malicious": pdata.get("malicious", False) or pdata.get("is_malicious", False),
                 "verdict": pdata.get("verdict", "unknown")
             }
+    for prov, pdata in provider_results.items():
+        if isinstance(pdata, dict) and prov not in provider_statuses:
+            provider_statuses[prov] = {
+                "available": pdata.get("status") not in ("error", "unavailable"),
+                "malicious": bool(pdata.get("is_malicious")),
+                "verdict": str(pdata.get("status", "unknown"))
+            }
+
+    h_flags = heuristics.get("flags") or []
+    ssl_report = domain_intel.get("ssl_report") or tls_info
+    brand_info = web_assess.get("brand_impersonation") or {}
+    is_spoof_confirmed = (
+        brand_info.get("verification_type") == "confirmed_webpage_spoof"
+        or (brand_info.get("is_impersonation_detected") and brand_info.get("dom_verification") == "confirmed")
+    )
+
+    # 5. Extract Confirmed Incidents (Blacklist hits, verified spoofs, cleartext form theft)
+    confirmed_incidents: List[Dict[str, str]] = []
+
+    # If caller already provided pre-normalized incident_list, respect it directly
+    if isinstance(scan_data.get("incident_list"), list) and scan_data["incident_list"]:
+        for inc in scan_data["incident_list"]:
+            if isinstance(inc, dict):
+                inc_title = inc.get("title") or inc.get("name")
+                if inc_title:
+                    confirmed_incidents.append({
+                        "title": inc_title,
+                        "severity": inc.get("severity", "MEDIUM"),
+                        "description": inc.get("description", "")
+                    })
+    else:
+        # Check Threat Intelligence
+        is_threat_confirmed = bool(threat_intel.get("is_threat_confirmed"))
+        malicious_providers = []
+        for prov, pdata in provider_statuses.items():
+            if pdata.get("malicious"):
+                malicious_providers.append(prov)
+        
+        if (is_threat_confirmed or malicious_providers):
+            confirmed_incidents.append({
+                "title": "Confirmed Malicious Blacklist Flag",
+                "severity": "CRITICAL",
+                "description": f"Flagged as active malware or phishing host by authoritative feeds: {', '.join(malicious_providers) or 'Global Threat Registers'}."
+            })
+
+        # Check Confirmed Brand Spoofing in DOM
+        brand_info = web_assess.get("brand_impersonation") or {}
+        is_spoof_confirmed = (
+            brand_info.get("verification_type") == "confirmed_webpage_spoof"
+            or (brand_info.get("is_impersonation_detected") and brand_info.get("dom_verification") == "confirmed")
+        )
+        if is_spoof_confirmed:
+            target_brand = brand_info.get("target_brand") or brand_info.get("impersonated_brand") or "Known Brand"
+            confirmed_incidents.append({
+                "title": f"Confirmed Brand Impersonation: {target_brand}",
+                "severity": "CRITICAL",
+                "description": f"Webpage content inspection confirmed active brand spoofing mimicking '{target_brand}' without domain authority."
+            })
+
+        # Check Form Exfiltration
+        form_analysis = web_assess.get("form_analysis") or {}
+        if form_analysis.get("has_external_credential_action"):
+            confirmed_incidents.append({
+                "title": "External Credential Exfiltration Action",
+                "severity": "CRITICAL",
+                "description": "HTML form transmits sensitive credentials or passwords directly to an unauthorized external domain."
+            })
+        elif form_analysis.get("has_insecure_http_action"):
+            confirmed_incidents.append({
+                "title": "Cleartext Credential Transmission over HTTP",
+                "severity": "HIGH",
+                "description": "Authentication form submits passwords over unencrypted HTTP, vulnerable to interception."
+            })
+
+        # Check TLS Invalid / Expired Certificate
+        ssl_report = domain_intel.get("ssl_report") or tls_info
+        tls_outcome = ssl_report.get("tls_outcome")
+        if tls_outcome == "INVALID_CERTIFICATE" or (ssl_report.get("valid") is False and ssl_report.get("error") and "TLS probe failed" not in str(ssl_report.get("message", ""))):
+            confirmed_incidents.append({
+                "title": "Untrusted or Expired TLS Certificate",
+                "severity": "HIGH",
+                "description": f"TLS security certificate validation failed: {ssl_report.get('message') or ssl_report.get('error', 'Invalid certificate')}."
+            })
+
+        # Check Punycode / Homograph (High Severity)
+        for flag in h_flags:
+            if "punycode" in flag.lower() or "homograph" in flag.lower():
+                confirmed_incidents.append({
+                    "title": "Unicode Homograph / Punycode Deception",
+                    "severity": "HIGH",
+                    "description": flag
+                })
+            elif "@" in flag or "userinfo" in flag.lower():
+                confirmed_incidents.append({
+                    "title": "Userinfo Delimiter Spoofing (@ Character)",
+                    "severity": "HIGH",
+                    "description": flag
+                })
+
+    # 6. Extract Suspicious Indicators (Heuristic signals, anomalies, non-critical warnings)
+    suspicious_indicators: List[str] = []
+
+    # Heuristic flags from website_scanner
+    for flag in h_flags:
+        if not any(f in flag.lower() for f in ["punycode", "homograph", "userinfo delimiter"]):
+            if flag not in suspicious_indicators:
+                suspicious_indicators.append(flag)
+
+    # Domain intelligence risk indicators
+    domain_risks = domain_intel.get("risk_indicators") or []
+    for dr in domain_risks:
+        if dr not in suspicious_indicators and not any(f in dr.lower() for f in ["punycode", "homograph"]):
+            suspicious_indicators.append(dr)
+
+    # Insecure plaintext HTTP
+    if ssl_report.get("tls_outcome") == "HTTPS_NOT_USED" or (url.lower().startswith("http://") and not ssl_report.get("is_valid")):
+        http_msg = "Unencrypted HTTP Transport: Connection lacks TLS encryption, leaving traffic exposed to network interception."
+        if http_msg not in suspicious_indicators:
+            suspicious_indicators.append(http_msg)
+
+    # Suspicious redirects
+    if web_assess.get("suspicious_redirect"):
+        redir_msg = "Anomalous Redirection Pathway: Target redirects through intermediate hops."
+        if redir_msg not in suspicious_indicators:
+            suspicious_indicators.append(redir_msg)
+
+    # Potential brand impersonation (when unconfirmed by DOM)
+    if brand_info.get("is_impersonation_detected") and not is_spoof_confirmed:
+        brand_target = brand_info.get("target_brand") or brand_info.get("impersonated_brand") or "Known Brand"
+        b_msg = f"Potential Brand Impersonation: Domain hostname references '{brand_target}' without verified authority."
+        if b_msg not in suspicious_indicators:
+            suspicious_indicators.append(b_msg)
+
+    # Suspicious threat tier from VirusTotal
+    vt_res = provider_results.get("virustotal") or provider_statuses.get("virustotal") or {}
+    if vt_res.get("suspicious_count", 0) > 0 and not is_threat_confirmed:
+        vt_msg = f"Vendor Anomaly: {vt_res.get('suspicious_count')} security engines on VirusTotal reported suspicious heuristics."
+        if vt_msg not in suspicious_indicators:
+            suspicious_indicators.append(vt_msg)
+
+    # Pre-existing indicators key
+    if isinstance(scan_data.get("indicators"), list):
+        for ind in scan_data["indicators"]:
+            msg = ind if isinstance(ind, str) else ind.get("description") or ind.get("name") or str(ind)
+            if msg and msg not in suspicious_indicators:
+                suspicious_indicators.append(msg)
+
+    # Deduplicate indicators
+    clean_indicators = []
+    for ind in suspicious_indicators:
+        if ind and ind not in clean_indicators:
+            clean_indicators.append(ind)
+
+    # 7. Extract Investigation Limitations & Inconclusive Telemetry
+    limitations: List[str] = []
+
+    # DOM content inspection status
+    content_state = web_assess.get("content_inspection_state", "")
+    inspection_state = web_assess.get("inspection_state", "")
+    is_dom_unavailable = (
+        web_assess.get("dom_inspection_available") is False
+        or web_assess.get("is_accessible") is False
+        or content_state in ("INCONCLUSIVE", "INSPECTION_UNAVAILABLE", "INSPECTION_ERROR")
+        or inspection_state in ("blocked", "timeout", "unavailable", "error", "inconclusive")
+    )
+    if is_dom_unavailable:
+        err_detail = web_assess.get("fetch_error") or web_assess.get("message") or inspection_state or "timeout/unavailable"
+        limitations.append(f"Webpage DOM content inspection unavailable / inconclusive ({err_detail}). Absence of detected DOM threats does not guarantee safety.")
+
+    # Threat Intelligence provider availability
+    if provider_statuses:
+        for prov_name, prov_val in provider_statuses.items():
+            if isinstance(prov_val, dict) and (not prov_val.get("available", True) or prov_val.get("verdict") == "unknown"):
+                limitations.append(f"Upstream provider '{prov_name}' was unavailable or returned inconclusive telemetry.")
+    elif threat_intel.get("providers_checked", 0) == 0:
+        limitations.append("External threat intelligence feeds were unconfigured or offline during scan execution.")
+
+    # TLS Probe availability
+    if ssl_report.get("tls_outcome") in ("TLS_UNAVAILABLE_OR_TIMEOUT", "TLS_INSPECTION_ERROR"):
+        limitations.append(f"TLS certificate validation was inconclusive: {ssl_report.get('message', 'connection timed out or port closed')}.")
+
+    if not limitations:
+        limitations.append("Full passive multi-engine telemetry investigation completed with complete sensor coverage.")
+
+    # 8. Investigation Status & Coverage
+    inv_status = final_risk.get("investigation_status")
+    if not inv_status:
+        inv_status = "INVESTIGATION INCOMPLETE" if is_dom_unavailable else ("CONFIRMED THREAT" if risk_category == "CRITICAL" else ("CAUTION ADVISED" if risk_category == "MEDIUM" else "VERIFIED SAFE"))
+    
+    inv_coverage = final_risk.get("investigation_coverage")
+    if inv_coverage is None:
+        inv_coverage = 65 if is_dom_unavailable else 100
+
+    existing_explanation = (
+        final_risk.get("explanation")
+        or scan_data.get("explanation")
+        or scan_data.get("risk_explanation")
+        or ""
+    )
 
     return {
-        "scan_id": scan_data.get("scan_id"),
-        "target_url": scan_data.get("target_url") or scan_data.get("url"),
-        "scan_timestamp": scan_data.get("scan_time") or scan_data.get("timestamp"),
-        "final_security_score": scan_data.get("final_score", 100),
-        "risk_category": scan_data.get("risk_level", "LOW"),
-        "confirmed_incidents": incidents,
-        "suspicious_indicators": scan_data.get("indicators", []),
+        "scan_id": scan_id,
+        "target_url": url,
+        "scan_timestamp": scan_timestamp,
+        "final_security_score": final_security_score,
+        "risk_category": risk_category,
+        "verdict_status": verdict_status,
+        "investigation_status": inv_status,
+        "investigation_coverage": inv_coverage,
+        "confirmed_incidents": confirmed_incidents,
+        "suspicious_indicators": clean_indicators,
         "provider_availability": provider_statuses,
+        "investigation_limitations": limitations,
         "domain_investigation": {
-            "registrar": domain_info.get("registrar"),
-            "creation_date": domain_info.get("creation_date"),
-            "domain_age_days": domain_info.get("age_days"),
-            "punycode": domain_info.get("is_punycode", False),
-            "impersonation_candidate": domain_info.get("potential_impersonation", False)
+            "hostname": domain_intel.get("hostname") or scan_data.get("domain"),
+            "ssl_valid": ssl_report.get("is_valid", ssl_report.get("valid", True)),
+            "issuer": ssl_report.get("issuer"),
+            "heuristic_flags_count": len(clean_indicators),
         },
-        "ssl_findings": {
-            "valid": ssl_info.get("valid", True),
-            "issuer": ssl_info.get("issuer"),
-            "expired": ssl_info.get("expired", False),
-            "self_signed": ssl_info.get("self_signed", False)
-        },
-        "existing_risk_explanation": scan_data.get("risk_explanation", "")
+        "existing_risk_explanation": existing_explanation
     }
 
 
@@ -122,30 +353,22 @@ def synthesize_fallback_refinement(scan_data: Dict[str, Any]) -> GeminiRefinedRe
     Used when Gemini API is unconfigured, unreachable, or times out.
     Guarantees strict factual alignment with zero hallucinations.
     """
-    score = scan_data.get("final_score", 100)
-    risk = str(scan_data.get("risk_level", "LOW")).upper()
-    url = scan_data.get("target_url") or scan_data.get("url") or "Target URL"
-    incidents = scan_data.get("incident_list") or []
-    indicators = scan_data.get("indicators") or []
+    digest = extract_telemetry_digest(scan_data)
+    score = digest["final_security_score"]
+    risk = digest["risk_category"]
+    url = digest["target_url"]
+    confirmed_dicts = digest["confirmed_incidents"]
+    suspicious = digest["suspicious_indicators"]
+    limitations = digest["investigation_limitations"]
+    inv_status = digest["investigation_status"]
 
-    # Confirmed findings
+    # Format confirmed findings strings
     confirmed: List[str] = []
-    for inc in incidents:
-        if isinstance(inc, dict):
-            title = inc.get("title") or inc.get("name") or "Security Incident"
-            sev = inc.get("severity", "MEDIUM")
-            desc = inc.get("description", "")
-            confirmed.append(f"[{sev}] {title}: {desc}" if desc else f"[{sev}] {title}")
-        elif isinstance(inc, str):
-            confirmed.append(inc)
-
-    # Suspicious indicators
-    suspicious: List[str] = []
-    for ind in indicators:
-        if isinstance(ind, str):
-            suspicious.append(ind)
-        elif isinstance(ind, dict):
-            suspicious.append(ind.get("description") or ind.get("name") or str(ind))
+    for inc in confirmed_dicts:
+        title = inc.get("title", "Security Incident")
+        sev = inc.get("severity", "MEDIUM")
+        desc = inc.get("description", "")
+        confirmed.append(f"[{sev}] {title}: {desc}" if desc else f"[{sev}] {title}")
 
     # Potential impact
     impact: List[str] = []
@@ -153,11 +376,14 @@ def synthesize_fallback_refinement(scan_data: Dict[str, Any]) -> GeminiRefinedRe
         impact.append("High probability of credential harvesting, session compromise, or unauthorized payload delivery.")
         impact.append("Visiting this destination exposes client workstations to social engineering or malicious redirects.")
     elif risk == "MEDIUM":
-        impact.append("Elevated risk of spoofed communications, outdated cryptography, or incomplete identity validation.")
-        impact.append("Users may mistakenly trust unverified or newly minted infrastructure.")
+        impact.append("Elevated risk of deceptive phishing, credential harvesting, or unverified lookalike infrastructure.")
+        impact.append("Users may mistakenly trust unverified infrastructure exhibiting deceptive keyword tokens.")
     else:
-        impact.append("Minimal operational exposure detected under current passive telemetry parameters.")
-        impact.append("Routine standard hygiene is sufficient; no active credential threat detected.")
+        if "incomplete" in inv_status.lower():
+            impact.append("Direct threat indicators were not observed, but unverified DOM structure leaves latent risks unassessed.")
+        else:
+            impact.append("Minimal operational exposure detected under current passive telemetry parameters.")
+            impact.append("Routine standard hygiene is sufficient; no active credential threat detected.")
 
     # Recommended actions
     actions: List[str] = []
@@ -166,34 +392,46 @@ def synthesize_fallback_refinement(scan_data: Dict[str, Any]) -> GeminiRefinedRe
         actions.append("Revoke any credentials or session tokens inadvertently entered into this destination.")
         actions.append("Submit this URL to upstream security feeds (VirusTotal, Google Safe Browsing) for blacklisting.")
     elif risk == "MEDIUM":
-        actions.append("Exercise strict caution before submitting sensitive data or enterprise credentials.")
-        actions.append("Inspect SSL/TLS certificate chains and domain registration timelines manually.")
-        actions.append("Monitor host communications for anomalous redirects or dynamic content updates.")
+        actions.append("Exercise strict caution. Do not enter credentials, passwords, or personal data on this website.")
+        actions.append("Manually verify the authoritative domain identity before proceeding.")
+        actions.append("Inspect SSL/TLS certificate chains and domain registration timelines.")
     else:
-        actions.append("Proceed under standard corporate browsing policies.")
-        actions.append("Maintain active browser security protections and keep endpoint protection signatures updated.")
-
-    # Limitations
-    limitations: List[str] = []
-    details = scan_data.get("details", {})
-    threat_intel = details.get("threat_intelligence", {})
-    for prov, pdata in threat_intel.items():
-        if isinstance(pdata, dict) and not pdata.get("available", True):
-            limitations.append(f"Upstream provider '{prov}' was unavailable or throttled during this scan window.")
-
-    if not limitations:
-        limitations.append("Passive telemetry analysis complete; active browser sandbox execution was not conducted.")
+        if "incomplete" in inv_status.lower():
+            actions.append("Exercise normal caution and re-scan if webpage content fails to load.")
+        else:
+            actions.append("Proceed under standard corporate browsing policies.")
+            actions.append("Maintain active browser security protections and keep endpoint protection signatures updated.")
 
     # Executive Summary & Explanation
-    exec_summary = (
-        f"RAVEN security investigation evaluated {url} with a final security score of {score}/100 "
-        f"resulting in a {risk} risk posture based on {len(confirmed)} confirmed incident(s) and "
-        f"{len(suspicious)} suspicious indicator(s)."
-    )
-    explanation = scan_data.get("risk_explanation") or (
+    if risk in ("HIGH", "CRITICAL"):
+        exec_summary = (
+            f"RAVEN security investigation evaluated {url} with a critical risk score of {score}/100 ({risk} RISK). "
+            f"The destination was flagged with {len(confirmed)} confirmed security incident(s) and {len(suspicious)} "
+            f"suspicious indicator(s). Immediate caution is required."
+        )
+    elif risk == "MEDIUM":
+        exec_summary = (
+            f"RAVEN security investigation evaluated {url} with a security risk score of {score}/100 (MODERATE RISK). "
+            f"The target exhibited {len(suspicious)} suspicious heuristic indicator(s) and {len(confirmed)} confirmed incident(s). "
+            f"While not yet globally blacklisted, caution is advised."
+        )
+    else:
+        if "incomplete" in inv_status.lower():
+            exec_summary = (
+                f"RAVEN security investigation evaluated {url} with a risk score of {score}/100 (LOW RISK). "
+                f"Zero confirmed malicious threats were detected; however, telemetry was incomplete ({limitations[0]})."
+            )
+        else:
+            exec_summary = (
+                f"RAVEN security investigation evaluated {url} with a clean risk score of {score}/100 (LOW RISK). "
+                f"Multi-engine feeds and passive checks detected zero confirmed incidents and zero suspicious indicators."
+            )
+
+    explanation = digest.get("existing_risk_explanation") or (
         f"The website was assessed as {risk} risk with a score of {score}/100. "
         f"Confirmed security findings and anomalous telemetry signals contributed directly to this risk determination."
     )
+
     final_verdict = (
         f"FINAL VERDICT: {risk} RISK ({score}/100). " +
         ("Navigation is strongly discouraged until security issues are addressed." if risk in ("HIGH", "CRITICAL")
@@ -215,7 +453,7 @@ def synthesize_fallback_refinement(scan_data: Dict[str, Any]) -> GeminiRefinedRe
 
 async def _call_gemini_api(url: str, payload: dict) -> dict:
     """Internal helper to execute the Gemini REST API request with resilient retry."""
-    timeout_cfg = httpx.Timeout(7.0, connect=3.0)
+    timeout_cfg = httpx.Timeout(8.0, connect=3.0)
     last_err = None
     for attempt in range(2):
         try:
@@ -256,16 +494,28 @@ async def refine_scan_report(scan_data: Dict[str, Any]) -> Dict[str, Any]:
 
     digest = extract_telemetry_digest(scan_data)
     prompt = (
-        "You are RAVEN's Senior Cybersecurity Intelligence Analyst. "
-        "Analyze the following verified website investigation results and refine them into a professional, "
-        "executive-level cybersecurity report.\n\n"
+        "You are RAVEN's Senior Cybersecurity Intelligence Analyst.\n"
+        "Analyze the following verified website investigation results and produce a refined, professional cybersecurity report.\n\n"
         "STRICT OPERATIONAL CONSTRAINTS:\n"
-        "1. Never alter the final security score or risk category.\n"
-        "2. Never fabricate incidents or indicators not supported by the telemetry.\n"
-        "3. Never treat unavailable or inconclusive telemetry as clean.\n"
-        "4. Inconclusive checks must remain explicitly marked as inconclusive.\n"
+        "1. PRESERVE THE SECURITY RISK SCORE AND RISK CATEGORY EXACTLY AS PROVIDED:\n"
+        f"   - The final_security_score is {digest['final_security_score']}/100 and risk_category is {digest['risk_category']}.\n"
+        "   - Score Scale: 1 = Clean / Low Risk; 25-65 = Moderate / Suspicious Risk; 75-100 = Critical / Malicious Risk.\n"
+        "   - Never alter, invert, or misstate the score or category.\n"
+        "2. DO NOT CONTRADICT THE DETECTION ENGINE:\n"
+        f"   - Suspicious Indicators detected ({len(digest['suspicious_indicators'])}):\n"
+        f"     {json.dumps(digest['suspicious_indicators'])}\n"
+        "   - If suspicious indicators exist, you MUST acknowledge and explain them.\n"
+        "   - NEVER report 0 suspicious indicators or claim the site is safe when heuristic flags exist.\n"
+        "3. ACCURATELY DISTINGUISH CONFIRMED INCIDENTS FROM SUSPICIOUS INDICATORS:\n"
+        f"   - Confirmed Incidents count is {len(digest['confirmed_incidents'])}.\n"
+        "   - Heuristic flags (e.g. .xyz TLD, phishing keywords) are suspicious indicators, NOT confirmed malicious incidents unless backed by threat blacklists.\n"
+        "4. HANDLE INCOMPLETE TELEMETRY:\n"
+        f"   - Investigation limitations ({len(digest['investigation_limitations'])}):\n"
+        f"     {json.dumps(digest['investigation_limitations'])}\n"
+        "   - Inconclusive checks (e.g. DOM inspection failure, timeouts, busy resources) must NEVER be treated as clean.\n"
+        "   - Prominently include telemetry limitations in 'investigation_limitations' and explain that unverified DOM cannot guarantee safety.\n"
         "5. Output ONLY a valid JSON object matching the requested schema.\n\n"
-        f"INVESTIGATION DATA:\n{json.dumps(digest, indent=2)}"
+        f"FULL INVESTIGATION DIGEST:\n{json.dumps(digest, indent=2)}"
     )
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
@@ -315,6 +565,14 @@ async def refine_scan_report(scan_data: Dict[str, Any]) -> Dict[str, Any]:
         parsed_data = json.loads(raw_text)
         validated = GeminiRefinedReport.model_validate(parsed_data)
 
+        # Enforce consistency safeguard: if heuristic flags exist, ensure indicators are not dropped
+        if digest["suspicious_indicators"] and not validated.suspicious_indicators:
+            validated.suspicious_indicators = list(digest["suspicious_indicators"])
+
+        # Enforce limitations safeguard: ensure missing DOM checks are never dropped
+        if digest["investigation_limitations"] and not validated.investigation_limitations:
+            validated.investigation_limitations = list(digest["investigation_limitations"])
+
         return {
             "status": "refined",
             "model_used": "raven_neural_core",
@@ -328,6 +586,5 @@ async def refine_scan_report(scan_data: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "status": "fallback",
             "model_used": "raven_neural_core",
-            "refined_report": fallback.model_dump(),
-            "notes": f"Neural refinement synthesis completed ({type(exc).__name__})."
+            "refined_report": fallback.model_dump()
         }

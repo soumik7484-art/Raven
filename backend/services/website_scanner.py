@@ -646,14 +646,34 @@ def synthesize_scan_report(
         classification = "safe"
         score = 1
         risk_score = 1
-        detection_status = "Verified Clean"
-        threat_type = "None Detected"
-        confidence = "High Confidence (99%)"
-        explanation = (
-            f"EXCELLENT POSTURE: '{hostname}' is verified clean. Multi-engine feeds, global threat registers, "
-            "and TLS certificate checks returned zero signs of phishing, deceptive routing, or malicious content."
-        )
-        recommended_action = "Safe to proceed with normal browsing awareness."
+        detection_status = "Investigation Incomplete" if dom_inconclusive else "Verified Clean"
+        threat_type = "Inconclusive DOM Inspection" if dom_inconclusive else "None Detected"
+        confidence = "Moderate Confidence (75%)" if dom_inconclusive else "High Confidence (99%)"
+        if dom_inconclusive:
+            explanation = (
+                f"PASSIVE POSTURE CLEAN: '{hostname}' returned zero blacklist flags across security threat databases. "
+                f"However, live webpage DOM content inspection was inconclusive ({dom_result.get('fetch_error', 'timeout')}). "
+                "Webpage safety cannot be guaranteed without complete DOM verification."
+            )
+            recommended_action = "Exercise standard caution. Avoid entering sensitive credentials until page authenticity is confirmed."
+        else:
+            explanation = (
+                f"EXCELLENT POSTURE: '{hostname}' is verified clean. Multi-engine feeds, global threat registers, "
+                "and TLS certificate checks returned zero signs of phishing, deceptive routing, or malicious content."
+            )
+            recommended_action = "Safe to proceed with normal browsing awareness."
+
+    inv_status = (
+        "CONFIRMED THREAT" if is_malicious
+        else "INVESTIGATION INCOMPLETE" if dom_inconclusive
+        else "CAUTION ADVISED" if is_suspicious
+        else "VERIFIED SAFE"
+    )
+    inv_coverage = 65 if dom_inconclusive else 100
+    failed_checks = (
+        [{"check": "DOM Content Inspection", "description": f"DOM content inspection inconclusive ({dom_result.get('fetch_error', 'timeout')})"}]
+        if dom_inconclusive else []
+    )
 
     return {
         "url": url,
@@ -676,6 +696,9 @@ def synthesize_scan_report(
             "risk_category": "Critical Risk" if classification == "malicious" else "Moderate Risk" if classification == "suspicious" else "Clean / Safe",
             "explanation": explanation,
             "recommendation": recommended_action,
+            "investigation_status": inv_status,
+            "investigation_coverage": inv_coverage,
+            "failed_checks": failed_checks,
         },
         "threat_intelligence": {
             "is_threat_confirmed": ti_malicious,

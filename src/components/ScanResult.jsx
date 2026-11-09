@@ -931,13 +931,45 @@ function CleanDossierContent({
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.74rem', fontFamily: 'var(--font-mono)', color: '#666' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '0.74rem', fontFamily: 'var(--font-mono)', color: '#666' }}>
           {data?.scan_id && (
             <span>
               SCAN ID: <strong style={{ color: '#222' }}>{String(data.scan_id).slice(0, 8)}...</strong>
             </span>
           )}
           <span>🕒 {scanTimestamp}</span>
+          <button
+            type="button"
+            onClick={() => setShowShareModal(true)}
+            className="scan-header-share-btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontFamily: 'var(--font-pixel)',
+              fontSize: '0.62rem',
+              color: '#2a2a2a',
+              backgroundColor: '#ffffff',
+              border: '1.5px solid #2a2a2a',
+              borderRadius: '3px',
+              padding: '3px 8px',
+              cursor: 'pointer',
+              boxShadow: '1.5px 1.5px 0 #2a2a2a',
+              letterSpacing: '0.04em',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f4f4ee'
+              e.currentTarget.style.transform = 'translateY(-1px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+          >
+            <Share2 size={11} color="#3a7a3a" />
+            SHARE REPORT
+          </button>
         </div>
       </div>
 
