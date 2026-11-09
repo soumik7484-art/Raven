@@ -86,6 +86,44 @@ const THEMES = {
     tailFill: '#edf8ec',
     tailBorder: '#1c551c',
   },
+  incomplete: {
+    type: 'incomplete',
+    label: 'INCOMPLETE SCAN',
+    badgeLabel: 'UNVERIFIED TARGET',
+    characterSrc: '/assets/character-suspicious.png',
+    characterAlt: 'Vigilant Minecraft Hero — Safety Unverified',
+    badgeSrc: '/assets/badge-suspicious.png',
+    badgeAlt: 'Warning Triangle Badge',
+    heroRole: 'VIGILANT SENTINEL',
+    themeColor: '#c97e00',
+    borderColor: '#824c00',
+    bevelLight: '#ffd65c',
+    bevelDark: '#543000',
+    shadowColor: '#331d00',
+    bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
+    textColor: '#3b2300',
+    tailFill: '#fdf5dd',
+    tailBorder: '#824c00',
+  },
+  unverified: {
+    type: 'unverified',
+    label: 'UNVERIFIED TARGET',
+    badgeLabel: 'CAUTION REQUIRED',
+    characterSrc: '/assets/character-suspicious.png',
+    characterAlt: 'Vigilant Minecraft Hero — Safety Unverified',
+    badgeSrc: '/assets/badge-suspicious.png',
+    badgeAlt: 'Warning Triangle Badge',
+    heroRole: 'VIGILANT SENTINEL',
+    themeColor: '#c97e00',
+    borderColor: '#824c00',
+    bevelLight: '#ffd65c',
+    bevelDark: '#543000',
+    shadowColor: '#331d00',
+    bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
+    textColor: '#3b2300',
+    tailFill: '#fdf5dd',
+    tailBorder: '#824c00',
+  },
 }
 
 // Sample preview payloads for testing all warrior reactions
@@ -223,52 +261,127 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
 
   // Parse result classification to select matching theme (Safe, Suspicious, Malicious, Incomplete, Loading)
   const themeKey = useMemo(() => {
+    // 1. Loading state -> Always loading character
     if (effectiveState === 'loading') return 'loading'
+
+    // 2. Error / Unavailable state -> Alert / Caution character
+    if (effectiveState === 'error' || effectiveState === 'unavailable') return 'suspicious'
+
+    // If no data, return safe if idle, or suspicious if active
     if (!effectiveData) return 'safe'
 
     const d = effectiveData
     const finalRisk = d.final_risk_report || {}
     const ti = d.threat_intelligence || {}
-    const invStatus = String(finalRisk.investigation_status || '').toUpperCase()
-
-    // 1. Authoritative backend investigation status
-    if (invStatus === 'MALICIOUS') return 'malicious'
-    if (invStatus === 'SUSPICIOUS') return 'suspicious'
-    if (invStatus === 'INVESTIGATION INCOMPLETE') return 'incomplete'
-    if (invStatus === 'UNVERIFIED') return 'unverified'
-    if (invStatus === 'VERIFIED SAFE') return 'safe'
-
-    // 2. Fallback risk indicators and confirmed threat floors
-    const rawCat = String(finalRisk.risk_category || d.risk_category || d.classification || '').toLowerCase()
-    const hasScore = typeof finalRisk.overall_risk_score === 'number' && finalRisk.overall_risk_score !== null
-    const riskScore = hasScore ? finalRisk.overall_risk_score : (typeof d.risk_score === 'number' ? d.risk_score : null)
-
-    if (ti.is_threat_confirmed || rawCat.includes('critical') || rawCat.includes('malicious') || (riskScore !== null && riskScore >= 75)) {
-      return 'malicious'
-    }
-    if (rawCat.includes('high') || rawCat.includes('mod') || rawCat.includes('suspicious') || (riskScore !== null && riskScore >= 25)) {
-      return 'suspicious'
-    }
-
-    // 3. Telemetry check failures: Never default to safe if critical checks failed
     const dom = d.domain_intelligence || {}
     const web = d.website_assessment || {}
+    const brandImp = web.brand_impersonation || {}
+    const formAnalysis = web.form_analysis || {}
+
+    // Extract all threat signals
+    const invStatus = String(finalRisk.investigation_status || '').toUpperCase()
+    const finalPred = String(finalRisk.final_prediction || '').toLowerCase()
+    const classification = String(d.classification || '').toLowerCase()
+    const rawCat = String(finalRisk.risk_category || d.risk_category || '').toLowerCase()
+    const threatType = String(d.threat_type || '').toLowerCase()
+    const detectionStatus = String(d.detection_status || '').toLowerCase()
+
+    const hasScore = typeof finalRisk.overall_risk_score === 'number' && finalRisk.overall_risk_score !== null
+    const riskScore = hasScore ? finalRisk.overall_risk_score : (typeof d.score === 'number' ? d.score : (typeof d.risk_score === 'number' ? d.risk_score : null))
+
+    // 3. PRIORITY 1: DANGEROUS / MALICIOUS (Red - Defensive Warrior Hero with Diamond Sword & Shield)
+    const isDangerous =
+      invStatus === 'MALICIOUS' ||
+      invStatus.includes('THREAT') ||
+      finalPred === 'malicious' ||
+      classification === 'malicious' ||
+      rawCat.includes('critical') ||
+      rawCat.includes('malicious') ||
+      rawCat.includes('high') ||
+      threatType.includes('malicious') ||
+      threatType.includes('phishing') ||
+      threatType.includes('malware') ||
+      threatType.includes('ransomware') ||
+      threatType.includes('trojan') ||
+      detectionStatus.includes('threat confirmed') ||
+      ti.is_threat_confirmed === true ||
+      (typeof ti.providers_malicious_count === 'number' && ti.providers_malicious_count > 0) ||
+      (riskScore !== null && riskScore >= 60) ||
+      brandImp.is_impersonation_detected === true ||
+      formAnalysis.has_external_credential_action === true
+
+    if (isDangerous) return 'malicious'
+
+    // 4. PRIORITY 2: SUSPICIOUS / WARNING / SSRF / HIGH-MODERATE RISK (Amber - Vigilant Sentinel with Stop-Hand)
+    const isSuspicious =
+      invStatus === 'SUSPICIOUS' ||
+      invStatus.includes('CAUTION') ||
+      finalPred === 'suspicious' ||
+      classification === 'suspicious' ||
+      rawCat.includes('mod') ||
+      rawCat.includes('med') ||
+      rawCat.includes('suspicious') ||
+      rawCat.includes('caution') ||
+      threatType.includes('ssrf') ||
+      threatType.includes('suspicious') ||
+      threatType.includes('deceptive') ||
+      threatType.includes('anomaly') ||
+      threatType.includes('unverified') ||
+      detectionStatus.includes('prohibited') ||
+      detectionStatus.includes('suspicious') ||
+      detectionStatus.includes('caution') ||
+      detectionStatus.includes('moderate') ||
+      ti.is_suspicious === true ||
+      (riskScore !== null && riskScore >= 20)
+
+    if (isSuspicious) return 'suspicious'
+
+    // 5. PRIORITY 3: INCOMPLETE / UNVERIFIED / TELEMETRY FAILURES (Amber Caution - Vigilant Sentinel)
     const dnsStatus = String(dom.dns_report?.status || '').toLowerCase()
     const isDomUnavailable = web.dom_inspection_available === false || web.is_accessible === false
     const ssl = dom.ssl_report || {}
     const isSslUnavailable = ssl.tls_outcome === 'TLS_UNAVAILABLE_OR_TIMEOUT' || ssl.status === 'connection_failed'
+    const isIncomplete =
+      invStatus === 'INVESTIGATION INCOMPLETE' ||
+      invStatus === 'UNVERIFIED' ||
+      invStatus.includes('INCOMPLETE') ||
+      dnsStatus === 'nxdomain' ||
+      dnsStatus === 'timeout' ||
+      dnsStatus === 'failed' ||
+      isDomUnavailable ||
+      isSslUnavailable
 
-    if (dnsStatus === 'nxdomain' || dnsStatus === 'timeout' || isDomUnavailable || isSslUnavailable) {
-      return 'incomplete'
+    if (isIncomplete) return 'incomplete'
+
+    // 6. PRIORITY 4: ONLY VERIFIED GOOD / SAFE CONDITION (Green - Celebrating Happy Minecraft Hero "WAVE")
+    // Strictly requires: score < 20 (0-19 Low Risk), clean category, no threat signals, no incomplete telemetry, verified safe.
+    const isStrictlyGood =
+      (riskScore === null || riskScore < 20) &&
+      (classification === 'safe' || classification === '') &&
+      (rawCat.includes('clean') || rawCat.includes('low') || rawCat.includes('safe') || rawCat === '') &&
+      invStatus !== 'INVESTIGATION INCOMPLETE' &&
+      invStatus !== 'UNVERIFIED' &&
+      invStatus !== 'SUSPICIOUS' &&
+      invStatus !== 'MALICIOUS' &&
+      !invStatus.includes('INCOMPLETE') &&
+      !invStatus.includes('CAUTION') &&
+      !invStatus.includes('THREAT') &&
+      !isIncomplete &&
+      !isSuspicious &&
+      !isDangerous
+
+    if (isStrictlyGood) {
+      return 'safe'
     }
 
-    return 'safe'
+    // Default to vigilant sentinel if not strictly good (prevents showing WAVE on any ambiguous or moderate condition)
+    return 'suspicious'
   }, [effectiveState, effectiveData])
 
   // Early return ONLY after all hooks are evaluated to maintain constant hook count
   if (state === 'idle' && !previewOverride) return null
 
-  const theme = THEMES[themeKey] || THEMES.safe
+  const theme = THEMES[themeKey] || THEMES.suspicious
 
   return (
     <div
@@ -663,16 +776,16 @@ function CleanDossierContent({
   const { category, categoryLabel, categoryColor, categoryBg, scoreSummary } = useMemo(() => {
     const rawCat = String(finalRisk.risk_category || '').toLowerCase()
 
-    if (invStatus === 'MALICIOUS' || isConfirmedThreat || rawCat.includes('critical') || (riskScore !== null && riskScore >= 75)) {
+    if (invStatus === 'MALICIOUS' || isConfirmedThreat || rawCat.includes('critical') || (riskScore !== null && riskScore >= 80)) {
       return {
         category: 'CRITICAL',
-        categoryLabel: 'MALICIOUS THREAT',
+        categoryLabel: 'CRITICAL RISK',
         categoryColor: '#cc2222',
         categoryBg: '#fff0f0',
         scoreSummary: finalRisk.explanation || 'Severe security risk detected. Access should be blocked to prevent potential compromise.',
       }
     }
-    if (invStatus === 'SUSPICIOUS' || rawCat.includes('high') || (riskScore !== null && riskScore >= 50)) {
+    if (rawCat.includes('high') || (riskScore !== null && riskScore >= 60)) {
       return {
         category: 'HIGH',
         categoryLabel: 'HIGH RISK',
@@ -681,7 +794,16 @@ function CleanDossierContent({
         scoreSummary: finalRisk.explanation || 'High probability of malicious intent. Do not enter passwords or confidential details.',
       }
     }
-    if (invStatus === 'SUSPICIOUS' || rawCat.includes('mod') || rawCat.includes('med') || (riskScore !== null && riskScore >= 25)) {
+    if (invStatus === 'SUSPICIOUS' || rawCat.includes('suspicious') || (riskScore !== null && riskScore >= 40)) {
+      return {
+        category: 'SUSPICIOUS',
+        categoryLabel: 'SUSPICIOUS',
+        categoryColor: '#d97706',
+        categoryBg: '#fffbeb',
+        scoreSummary: finalRisk.explanation || 'Suspicious risk signals detected. Exercise heightened caution.',
+      }
+    }
+    if (rawCat.includes('mod') || rawCat.includes('med') || (riskScore !== null && riskScore >= 20)) {
       return {
         category: 'MEDIUM',
         categoryLabel: 'MODERATE RISK',
