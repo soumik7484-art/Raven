@@ -9,248 +9,314 @@ import ShareModal from './ShareModal'
  * the clean, organised risk intelligence report.
  */
 
-const THEMES = {
-  safe: {
-    type: 'safe',
-    label: 'SAFE WEBSITE',
-    badgeLabel: 'VERIFIED SAFE',
+/**
+ * Centralized Authoritative Verdict & Character Resolver
+ * Single source of truth for:
+ * - Character image (/assets/character-safe.png, /assets/character-suspicious.png, /assets/character-malicious.png)
+ * - Website status heading ("SAFE WEBSITE", "SUSPICIOUS WEBSITE", "INVESTIGATION INCOMPLETE", "MALICIOUS THREAT")
+ * - Verdict badge ("VERIFIED SAFE", "CAUTION REQUIRED", "UNVERIFIED TARGET", "CRITICAL DANGER")
+ * - Status colors and borders
+ * - Risk score and risk category
+ */
+export function resolveScanVerdict(data, state) {
+  // 1. Loading state -> Always loading character
+  if (state === 'loading') {
+    return {
+      key: 'loading',
+      status: 'loading',
+      heading: 'SCANNING IN PROGRESS…',
+      badge: 'ACTIVE RADAR',
+      heroRole: 'ACTIVE RADAR SCAN',
+      characterSrc: '/assets/character-loading.png',
+      characterAlt: 'Cyber Sentinel actively scanning target with neural terminal',
+      themeColor: '#2b772b',
+      borderColor: '#1c551c',
+      bevelLight: '#78cf78',
+      bevelDark: '#123812',
+      shadowColor: '#0a220a',
+      bgGradient: 'linear-gradient(180deg, #ffffff 0%, #f6fcf4 18%, #edf8ec 100%)',
+      tailFill: '#edf8ec',
+      category: 'LOADING',
+      categoryLabel: 'SCANNING...',
+      categoryColor: '#2b772b',
+      categoryBg: '#edf8ec',
+      riskScore: null,
+      scoreSummary: 'Actively retrieving network telemetry and inspecting target...',
+    }
+  }
+
+  // 2. Error / Unavailable state -> Alert / Caution character
+  if (state === 'error' || state === 'unavailable') {
+    return {
+      key: 'unavailable',
+      status: 'unavailable',
+      heading: 'SERVICE UNAVAILABLE',
+      badge: 'OFFLINE',
+      heroRole: 'VIGILANT SENTINEL',
+      characterSrc: '/assets/character-suspicious.png',
+      characterAlt: 'Vigilant Minecraft Hero with Stop-Hand',
+      themeColor: '#c97e00',
+      borderColor: '#824c00',
+      bevelLight: '#ffd65c',
+      bevelDark: '#543000',
+      shadowColor: '#331d00',
+      bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
+      tailFill: '#fdf5dd',
+      category: 'UNAVAILABLE',
+      categoryLabel: 'UNAVAILABLE',
+      categoryColor: '#c97e00',
+      categoryBg: '#fffdf0',
+      riskScore: null,
+      scoreSummary: 'Security telemetry pipeline is currently unreachable. Please retry.',
+    }
+  }
+
+  // If no data, return ready
+  if (!data) {
+    return {
+      key: 'safe',
+      status: 'idle',
+      heading: 'SECURITY RADAR',
+      badge: 'READY',
+      heroRole: 'TRUSTED HERO',
+      characterSrc: '/assets/character-safe.png',
+      characterAlt: 'Celebrating Minecraft Hero',
+      themeColor: '#2b772b',
+      borderColor: '#1c551c',
+      bevelLight: '#78cf78',
+      bevelDark: '#123812',
+      shadowColor: '#0a220a',
+      bgGradient: 'linear-gradient(180deg, #ffffff 0%, #f6fcf4 18%, #edf8ec 100%)',
+      tailFill: '#edf8ec',
+      category: 'IDLE',
+      categoryLabel: 'READY',
+      categoryColor: '#2b772b',
+      categoryBg: '#edf8ec',
+      riskScore: null,
+      scoreSummary: 'Ready to investigate target website.',
+    }
+  }
+
+  const d = data
+  const finalRisk = d.final_risk_report || {}
+  const ti = d.threat_intelligence || {}
+  const dom = d.domain_intelligence || {}
+  const web = d.website_assessment || {}
+  const brandImp = web.brand_impersonation || {}
+  const formAnalysis = web.form_analysis || {}
+
+  // Extract signals
+  const invStatus = String(finalRisk.investigation_status || '').toUpperCase()
+  const finalPred = String(finalRisk.final_prediction || '').toLowerCase()
+  const classification = String(d.classification || '').toLowerCase()
+  const rawCat = String(finalRisk.risk_category || d.risk_category || '').toLowerCase()
+  const threatType = String(d.threat_type || '').toLowerCase()
+  const detectionStatus = String(d.detection_status || '').toLowerCase()
+
+  const hasScore = typeof finalRisk.overall_risk_score === 'number' && finalRisk.overall_risk_score !== null
+  const riskScore = hasScore
+    ? Math.max(0, Math.min(100, Math.round(finalRisk.overall_risk_score)))
+    : (typeof d.score === 'number'
+      ? Math.max(0, Math.min(100, Math.round(d.score)))
+      : (typeof d.risk_score === 'number'
+        ? Math.max(0, Math.min(100, Math.round(d.risk_score)))
+        : null))
+
+  const dnsStatus = String(dom.dns_report?.status || '').toLowerCase()
+  const isDomUnavailable = web.dom_inspection_available === false || web.is_accessible === false
+  const ssl = dom.ssl_report || {}
+  const isSslUnavailable = ssl.tls_outcome === 'TLS_UNAVAILABLE_OR_TIMEOUT' || ssl.status === 'connection_failed'
+  const isCoverageIncomplete = typeof finalRisk.investigation_coverage === 'number' && finalRisk.investigation_coverage < 75
+
+  // 1. DANGEROUS / MALICIOUS (Red warrior character with diamond sword & shield)
+  // Requires confirmed evidence: multi-feed blacklists, confirmed webpage spoofing, or credential exfiltration form
+  const isDangerous =
+    invStatus === 'MALICIOUS' ||
+    invStatus.includes('THREAT') ||
+    finalPred === 'malicious' ||
+    classification === 'malicious' ||
+    rawCat.includes('critical') ||
+    rawCat.includes('malicious') ||
+    (riskScore !== null && riskScore >= 80) ||
+    threatType.includes('malicious') ||
+    threatType.includes('phishing') ||
+    threatType.includes('malware') ||
+    threatType.includes('ransomware') ||
+    threatType.includes('trojan') ||
+    detectionStatus.includes('threat confirmed') ||
+    ti.is_threat_confirmed === true ||
+    (typeof ti.providers_malicious_count === 'number' && ti.providers_malicious_count > 0) ||
+    (brandImp.is_impersonation_detected === true && (brandImp.verification_type === 'confirmed_webpage_spoof' || brandImp.dom_verification === 'confirmed')) ||
+    formAnalysis.has_external_credential_action === true
+
+  if (isDangerous) {
+    const isCritical = riskScore === null || riskScore >= 80 || rawCat.includes('critical') || invStatus.includes('THREAT')
+    return {
+      key: 'malicious',
+      status: 'malicious',
+      heading: 'MALICIOUS THREAT',
+      badge: 'CRITICAL DANGER',
+      heroRole: 'DEFENSIVE WARRIOR',
+      characterSrc: '/assets/character-malicious.png',
+      characterAlt: 'Warrior Hero with Diamond Sword & Shield — Confirmed Danger',
+      themeColor: '#cc2222',
+      borderColor: '#780e0e',
+      bevelLight: '#ff7070',
+      bevelDark: '#4a0505',
+      shadowColor: '#2b0000',
+      bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fff5f5 18%, #fbe7e7 100%)',
+      tailFill: '#fbe7e7',
+      category: isCritical ? 'CRITICAL' : 'HIGH',
+      categoryLabel: isCritical ? 'CRITICAL RISK' : 'HIGH RISK',
+      categoryColor: '#cc2222',
+      categoryBg: '#fff0f0',
+      riskScore,
+      scoreSummary: finalRisk.explanation || 'Severe security threat detected. Access should be blocked to prevent potential compromise.',
+    }
+  }
+
+  // 2. HIGH RISK (60-79) - Red warrior character
+  const isHighRisk = (riskScore !== null && riskScore >= 60) || rawCat.includes('high')
+  if (isHighRisk) {
+    return {
+      key: 'malicious',
+      status: 'high_risk',
+      heading: 'HIGH RISK WEBSITE',
+      badge: 'HEIGHTENED DANGER',
+      heroRole: 'DEFENSIVE WARRIOR',
+      characterSrc: '/assets/character-malicious.png',
+      characterAlt: 'Warrior Hero with Diamond Sword & Shield — High Risk Destination',
+      themeColor: '#e67e22',
+      borderColor: '#824c00',
+      bevelLight: '#ffa85c',
+      bevelDark: '#543000',
+      shadowColor: '#331d00',
+      bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fff8f0 18%, #fdf0e0 100%)',
+      tailFill: '#fdf0e0',
+      category: 'HIGH',
+      categoryLabel: 'HIGH RISK',
+      categoryColor: '#e67e22',
+      categoryBg: '#fff6ed',
+      riskScore,
+      scoreSummary: finalRisk.explanation || 'High risk indicators detected. Do not enter credentials or confidential details.',
+    }
+  }
+
+  // 3. SUSPICIOUS / MODERATE RISK / ANOMALIES (Gold/yellow suspicious character with Stop-Hand)
+  // Triggers when score >= 20, brand impersonation detected, heuristic anomalies, or unconfirmed signals
+  const hasBrandImpersonation = Boolean(brandImp.is_impersonation_detected)
+  const isSuspicious =
+    invStatus === 'SUSPICIOUS' ||
+    invStatus.includes('CAUTION') ||
+    finalPred === 'suspicious' ||
+    classification === 'suspicious' ||
+    rawCat.includes('mod') ||
+    rawCat.includes('med') ||
+    rawCat.includes('suspicious') ||
+    rawCat.includes('caution') ||
+    hasBrandImpersonation ||
+    threatType.includes('impersonation') ||
+    threatType.includes('ssrf') ||
+    threatType.includes('suspicious') ||
+    threatType.includes('deceptive') ||
+    threatType.includes('anomaly') ||
+    threatType.includes('unverified') ||
+    detectionStatus.includes('prohibited') ||
+    detectionStatus.includes('suspicious') ||
+    detectionStatus.includes('caution') ||
+    detectionStatus.includes('moderate') ||
+    ti.is_suspicious === true ||
+    (riskScore !== null && riskScore >= 20)
+
+  // 4. INCOMPLETE TELEMETRY / UNVERIFIED (Gold/yellow suspicious character with Stop-Hand)
+  const isIncomplete =
+    invStatus === 'INVESTIGATION INCOMPLETE' ||
+    invStatus === 'UNVERIFIED' ||
+    invStatus.includes('INCOMPLETE') ||
+    dnsStatus === 'nxdomain' ||
+    dnsStatus === 'timeout' ||
+    dnsStatus === 'failed' ||
+    isDomUnavailable ||
+    isSslUnavailable ||
+    isCoverageIncomplete
+
+  if (isSuspicious) {
+    const isSuspiciousTier = (riskScore !== null && riskScore >= 40) || classification === 'suspicious' || hasBrandImpersonation
+    return {
+      key: 'suspicious',
+      status: 'suspicious',
+      heading: 'SUSPICIOUS WEBSITE',
+      badge: isSuspiciousTier ? 'CAUTION REQUIRED' : 'MODERATE RISK',
+      heroRole: 'VIGILANT SENTINEL',
+      characterSrc: '/assets/character-suspicious.png',
+      characterAlt: 'Vigilant Minecraft Hero with Stop-Hand — Potential Threat Detected',
+      themeColor: '#c97e00',
+      borderColor: '#824c00',
+      bevelLight: '#ffd65c',
+      bevelDark: '#543000',
+      shadowColor: '#331d00',
+      bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
+      tailFill: '#fdf5dd',
+      category: isSuspiciousTier ? 'SUSPICIOUS' : 'MEDIUM',
+      categoryLabel: isSuspiciousTier ? (riskScore !== null && riskScore >= 50 ? 'HIGH RISK' : 'MODERATE RISK') : 'MODERATE RISK',
+      categoryColor: isSuspiciousTier ? '#d97706' : '#c8952a',
+      categoryBg: isSuspiciousTier ? '#fffbeb' : '#fffbf0',
+      riskScore,
+      scoreSummary: finalRisk.explanation || 'Potential risk signals identified. Exercise heightened caution before interacting with this page.',
+    }
+  }
+
+  if (isIncomplete) {
+    return {
+      key: 'incomplete',
+      status: 'incomplete',
+      heading: 'INVESTIGATION INCOMPLETE',
+      badge: 'UNVERIFIED TARGET',
+      heroRole: 'VIGILANT SENTINEL',
+      characterSrc: '/assets/character-suspicious.png',
+      characterAlt: 'Vigilant Minecraft Hero with Stop-Hand — Safety Unverified',
+      themeColor: '#c97e00',
+      borderColor: '#824c00',
+      bevelLight: '#ffd65c',
+      bevelDark: '#543000',
+      shadowColor: '#331d00',
+      bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
+      tailFill: '#fdf5dd',
+      category: 'INCOMPLETE',
+      categoryLabel: 'INVESTIGATION INCOMPLETE',
+      categoryColor: '#c97e00',
+      categoryBg: '#fffdf0',
+      riskScore,
+      scoreSummary: finalRisk.explanation || 'Critical investigation modules were unavailable or timed out. Target safety could not be verified.',
+    }
+  }
+
+  // 5. CLEAN / VERIFIED SAFE (Green cheerful hero character celebrating/waving)
+  // Strictly requires: score < 20 (0-19 Low Risk), clean category, no threat signals, no incomplete telemetry, verified safe.
+  return {
+    key: 'safe',
+    status: 'safe',
+    heading: 'SAFE WEBSITE',
+    badge: 'VERIFIED SAFE',
+    heroRole: 'TRUSTED HERO',
     characterSrc: '/assets/character-safe.png',
     characterAlt: 'Celebrating Minecraft Hero — URL Verified Safe',
-    badgeSrc: '/assets/badge-safe.png',
-    badgeAlt: 'Shield Checkmark Badge',
-    heroRole: 'TRUSTED HERO',
     themeColor: '#2b772b',
     borderColor: '#1c551c',
     bevelLight: '#78cf78',
     bevelDark: '#123812',
     shadowColor: '#0a220a',
     bgGradient: 'linear-gradient(180deg, #ffffff 0%, #f6fcf4 18%, #edf8ec 100%)',
-    textColor: '#1a331a',
     tailFill: '#edf8ec',
-    tailBorder: '#1c551c',
-  },
-  suspicious: {
-    type: 'suspicious',
-    label: 'SUSPICIOUS URL',
-    badgeLabel: 'CAUTION REQUIRED',
-    characterSrc: '/assets/character-suspicious.png',
-    characterAlt: 'Vigilant Minecraft Hero with Stop-Hand',
-    badgeSrc: '/assets/badge-suspicious.png',
-    badgeAlt: 'Warning Triangle Badge',
-    heroRole: 'VIGILANT SENTINEL',
-    themeColor: '#c97e00',
-    borderColor: '#824c00',
-    bevelLight: '#ffd65c',
-    bevelDark: '#543000',
-    shadowColor: '#331d00',
-    bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
-    textColor: '#3b2300',
-    tailFill: '#fdf5dd',
-    tailBorder: '#824c00',
-  },
-  malicious: {
-    type: 'malicious',
-    label: 'MALICIOUS THREAT',
-    badgeLabel: 'CRITICAL DANGER',
-    characterSrc: '/assets/character-malicious.png',
-    characterAlt: 'Warrior Hero with Diamond Sword & Shield',
-    badgeSrc: '/assets/badge-malicious.png',
-    badgeAlt: 'Skull Danger Badge',
-    heroRole: 'DEFENSIVE WARRIOR',
-    themeColor: '#c81e1e',
-    borderColor: '#780e0e',
-    bevelLight: '#ff7070',
-    bevelDark: '#4a0505',
-    shadowColor: '#2b0000',
-    bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fff5f5 18%, #fbe7e7 100%)',
-    textColor: '#420808',
-    tailFill: '#fbe7e7',
-    tailBorder: '#780e0e',
-  },
-  loading: {
-    type: 'loading',
-    label: 'SCANNING IN PROGRESS…',
-    badgeLabel: 'ACTIVE RADAR',
-    characterSrc: '/assets/character-loading.png',
-    characterAlt: 'Cyber Sentinel actively scanning target with neural terminal',
-    badgeSrc: '/assets/badge-safe.png',
-    badgeAlt: 'Radar Beacon',
-    heroRole: 'ACTIVE RADAR SCAN',
-    themeColor: '#2b772b',
-    borderColor: '#1c551c',
-    bevelLight: '#78cf78',
-    bevelDark: '#123812',
-    shadowColor: '#0a220a',
-    bgGradient: 'linear-gradient(180deg, #ffffff 0%, #f6fcf4 18%, #edf8ec 100%)',
-    textColor: '#1a331a',
-    tailFill: '#edf8ec',
-    tailBorder: '#1c551c',
-  },
-  incomplete: {
-    type: 'incomplete',
-    label: 'INCOMPLETE SCAN',
-    badgeLabel: 'UNVERIFIED TARGET',
-    characterSrc: '/assets/character-suspicious.png',
-    characterAlt: 'Vigilant Minecraft Hero — Safety Unverified',
-    badgeSrc: '/assets/badge-suspicious.png',
-    badgeAlt: 'Warning Triangle Badge',
-    heroRole: 'VIGILANT SENTINEL',
-    themeColor: '#c97e00',
-    borderColor: '#824c00',
-    bevelLight: '#ffd65c',
-    bevelDark: '#543000',
-    shadowColor: '#331d00',
-    bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
-    textColor: '#3b2300',
-    tailFill: '#fdf5dd',
-    tailBorder: '#824c00',
-  },
-  unverified: {
-    type: 'unverified',
-    label: 'UNVERIFIED TARGET',
-    badgeLabel: 'CAUTION REQUIRED',
-    characterSrc: '/assets/character-suspicious.png',
-    characterAlt: 'Vigilant Minecraft Hero — Safety Unverified',
-    badgeSrc: '/assets/badge-suspicious.png',
-    badgeAlt: 'Warning Triangle Badge',
-    heroRole: 'VIGILANT SENTINEL',
-    themeColor: '#c97e00',
-    borderColor: '#824c00',
-    bevelLight: '#ffd65c',
-    bevelDark: '#543000',
-    shadowColor: '#331d00',
-    bgGradient: 'linear-gradient(180deg, #ffffff 0%, #fffcf2 18%, #fdf5dd 100%)',
-    textColor: '#3b2300',
-    tailFill: '#fdf5dd',
-    tailBorder: '#824c00',
-  },
+    category: 'LOW',
+    categoryLabel: 'VERIFIED SAFE',
+    categoryColor: '#3a7a3a',
+    categoryBg: '#f0f9f0',
+    riskScore: riskScore ?? 1,
+    scoreSummary: finalRisk.explanation || 'All investigation checks completed with zero malicious indicators detected.',
+  }
 }
 
-// Sample preview payloads for testing all warrior reactions
-const PREVIEW_PAYLOADS = {
-  safe: {
-    submitted_url: 'https://wikipedia.org/',
-    scan_id: '03f2dd01-8b29-4591-9c8e',
-    timestamp: new Date().toISOString(),
-    final_risk_report: {
-      overall_risk_score: 5,
-      risk_category: 'Low Risk',
-      investigation_status: 'VERIFIED SAFE',
-      investigation_coverage: 100,
-      explanation: 'This website appears safe and trustworthy to browse under standard security practices.',
-      recommended_action: 'Standard browsing permitted: No anomalous security indicators detected.',
-    },
-    threat_intelligence: {
-      is_threat_confirmed: false,
-      providers_checked: 4,
-      providers_malicious_count: 0,
-    },
-    domain_intelligence: {
-      hostname: 'wikipedia.org',
-      dns_report: { status: 'success', a_records: ['208.80.154.224'] },
-      ssl_report: { is_valid: true, status: 'valid', tls_outcome: 'VALID_CERTIFICATE', issuer: 'trusted authority' },
-      rdap_report: { status: 'success', domain_age_days: 25 * 365 },
-    },
-    website_assessment: {
-      is_accessible: true,
-      dom_inspection_available: true,
-      inspection_state: 'inspected',
-      content_inspection_state: 'INSPECTED_CLEAN',
-      status_code: 200,
-    },
-  },
-  incomplete: {
-    submitted_url: 'https://unresolvable-nxdomain-target.xyz/',
-    scan_id: '4c7d21a9-9941-4c12-9a01',
-    timestamp: new Date().toISOString(),
-    final_risk_report: {
-      overall_risk_score: null,
-      risk_category: 'Incomplete',
-      investigation_status: 'INVESTIGATION INCOMPLETE',
-      investigation_coverage: 40,
-      explanation: 'Critical investigation modules (DNS, Content) failed or timed out. Safety cannot be verified.',
-      recommended_action: 'Retry investigation: Check destination connectivity and re-run scan.',
-      failed_checks: [
-        { module: 'dns', status: 'failed', description: 'DNS check failed (NXDOMAIN / domain does not exist).' },
-        { module: 'content', status: 'unavailable', description: 'Content inspection unavailable: Domain could not be resolved via DNS.' }
-      ]
-    },
-    threat_intelligence: {
-      is_threat_confirmed: false,
-      providers_checked: 4,
-      providers_malicious_count: 0,
-    },
-    domain_intelligence: {
-      hostname: 'unresolvable-nxdomain-target.xyz',
-      dns_report: { status: 'nxdomain', error_message: 'Host unresolvable (NXDOMAIN)' },
-      ssl_report: { status: 'connection_failed', tls_outcome: 'TLS_UNAVAILABLE_OR_TIMEOUT' },
-    },
-    website_assessment: {
-      is_accessible: false,
-      dom_inspection_available: false,
-      content_inspection_state: 'INSPECTION_UNAVAILABLE',
-    },
-  },
-  suspicious: {
-    submitted_url: 'https://verify-login-update.xyz/',
-    scan_id: '5e7a912c-914b-4a2e-8a19',
-    timestamp: new Date().toISOString(),
-    final_risk_report: {
-      overall_risk_score: 48,
-      risk_category: 'Moderate Risk',
-      explanation: 'Moderate security warnings identified. Exercise caution before interacting with this page.',
-    },
-    threat_intelligence: {
-      is_threat_confirmed: false,
-      is_suspicious: true,
-      threat_tier: 'credible_suspicious',
-      providers_checked: 4,
-      providers_malicious_count: 0,
-    },
-    domain_intelligence: {
-      hostname: 'verify-login-update.xyz',
-      ssl_report: { is_valid: true, days_until_expiration: 12 },
-      rdap_report: { status: 'success', domain_age_days: 14 },
-      risk_indicators: ['Newly registered domain (.xyz)', 'Potential brand lookalike'],
-    },
-    website_assessment: {
-      is_accessible: true,
-      suspicious_redirect: true,
-      form_analysis: { has_external_form_action: true, password_forms_count: 0 },
-    },
-  },
-  malicious: {
-    submitted_url: 'http://paypal-account-security-update.com/login',
-    scan_id: '9b3c41ef-0012-4f81-a953',
-    timestamp: new Date().toISOString(),
-    final_risk_report: {
-      overall_risk_score: 88,
-      risk_category: 'Critical Risk',
-      explanation: 'Severe security risk detected. Access should be blocked to prevent potential compromise.',
-    },
-    threat_intelligence: {
-      is_threat_confirmed: true,
-      threat_types: ['phishing', 'malware'],
-      providers_checked: 4,
-      providers_malicious_count: 2,
-      provider_results: {
-        google_safe_browsing: { is_malicious: true },
-        virustotal: { is_malicious: true },
-      },
-    },
-    domain_intelligence: {
-      hostname: 'paypal-account-security-update.com',
-      ssl_report: { is_valid: false, tls_outcome: 'HTTPS_NOT_USED' },
-      rdap_report: { status: 'success', domain_age_days: 3 },
-      risk_indicators: ['Confirmed deceptive PayPal brand spoofing address'],
-    },
-    website_assessment: {
-      is_accessible: true,
-      brand_impersonation: { is_impersonation_detected: true, target_brand: 'PayPal' },
-      form_analysis: { has_external_credential_action: true, password_forms_count: 1 },
-    },
-  },
-}
 
 export default function ScanResult({ state, data, error, url, onRetry, onReset }) {
   const [previewOverride, setPreviewOverride] = useState(null)
@@ -259,129 +325,15 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
   const effectiveData = previewOverride && previewOverride !== 'loading' ? PREVIEW_PAYLOADS[previewOverride] : data
   const effectiveState = previewOverride ? (previewOverride === 'loading' ? 'loading' : 'success') : state
 
-  // Parse result classification to select matching theme (Safe, Suspicious, Malicious, Incomplete, Loading)
-  const themeKey = useMemo(() => {
-    // 1. Loading state -> Always loading character
-    if (effectiveState === 'loading') return 'loading'
-
-    // 2. Error / Unavailable state -> Alert / Caution character
-    if (effectiveState === 'error' || effectiveState === 'unavailable') return 'suspicious'
-
-    // If no data, return safe if idle, or suspicious if active
-    if (!effectiveData) return 'safe'
-
-    const d = effectiveData
-    const finalRisk = d.final_risk_report || {}
-    const ti = d.threat_intelligence || {}
-    const dom = d.domain_intelligence || {}
-    const web = d.website_assessment || {}
-    const brandImp = web.brand_impersonation || {}
-    const formAnalysis = web.form_analysis || {}
-
-    // Extract all threat signals
-    const invStatus = String(finalRisk.investigation_status || '').toUpperCase()
-    const finalPred = String(finalRisk.final_prediction || '').toLowerCase()
-    const classification = String(d.classification || '').toLowerCase()
-    const rawCat = String(finalRisk.risk_category || d.risk_category || '').toLowerCase()
-    const threatType = String(d.threat_type || '').toLowerCase()
-    const detectionStatus = String(d.detection_status || '').toLowerCase()
-
-    const hasScore = typeof finalRisk.overall_risk_score === 'number' && finalRisk.overall_risk_score !== null
-    const riskScore = hasScore ? finalRisk.overall_risk_score : (typeof d.score === 'number' ? d.score : (typeof d.risk_score === 'number' ? d.risk_score : null))
-
-    // 3. PRIORITY 1: DANGEROUS / MALICIOUS (Red - Defensive Warrior Hero with Diamond Sword & Shield)
-    const isDangerous =
-      invStatus === 'MALICIOUS' ||
-      invStatus.includes('THREAT') ||
-      finalPred === 'malicious' ||
-      classification === 'malicious' ||
-      rawCat.includes('critical') ||
-      rawCat.includes('malicious') ||
-      rawCat.includes('high') ||
-      threatType.includes('malicious') ||
-      threatType.includes('phishing') ||
-      threatType.includes('malware') ||
-      threatType.includes('ransomware') ||
-      threatType.includes('trojan') ||
-      detectionStatus.includes('threat confirmed') ||
-      ti.is_threat_confirmed === true ||
-      (typeof ti.providers_malicious_count === 'number' && ti.providers_malicious_count > 0) ||
-      (riskScore !== null && riskScore >= 60) ||
-      brandImp.is_impersonation_detected === true ||
-      formAnalysis.has_external_credential_action === true
-
-    if (isDangerous) return 'malicious'
-
-    // 4. PRIORITY 2: SUSPICIOUS / WARNING / SSRF / HIGH-MODERATE RISK (Amber - Vigilant Sentinel with Stop-Hand)
-    const isSuspicious =
-      invStatus === 'SUSPICIOUS' ||
-      invStatus.includes('CAUTION') ||
-      finalPred === 'suspicious' ||
-      classification === 'suspicious' ||
-      rawCat.includes('mod') ||
-      rawCat.includes('med') ||
-      rawCat.includes('suspicious') ||
-      rawCat.includes('caution') ||
-      threatType.includes('ssrf') ||
-      threatType.includes('suspicious') ||
-      threatType.includes('deceptive') ||
-      threatType.includes('anomaly') ||
-      threatType.includes('unverified') ||
-      detectionStatus.includes('prohibited') ||
-      detectionStatus.includes('suspicious') ||
-      detectionStatus.includes('caution') ||
-      detectionStatus.includes('moderate') ||
-      ti.is_suspicious === true ||
-      (riskScore !== null && riskScore >= 20)
-
-    if (isSuspicious) return 'suspicious'
-
-    // 5. PRIORITY 3: INCOMPLETE / UNVERIFIED / TELEMETRY FAILURES (Amber Caution - Vigilant Sentinel)
-    const dnsStatus = String(dom.dns_report?.status || '').toLowerCase()
-    const isDomUnavailable = web.dom_inspection_available === false || web.is_accessible === false
-    const ssl = dom.ssl_report || {}
-    const isSslUnavailable = ssl.tls_outcome === 'TLS_UNAVAILABLE_OR_TIMEOUT' || ssl.status === 'connection_failed'
-    const isIncomplete =
-      invStatus === 'INVESTIGATION INCOMPLETE' ||
-      invStatus === 'UNVERIFIED' ||
-      invStatus.includes('INCOMPLETE') ||
-      dnsStatus === 'nxdomain' ||
-      dnsStatus === 'timeout' ||
-      dnsStatus === 'failed' ||
-      isDomUnavailable ||
-      isSslUnavailable
-
-    if (isIncomplete) return 'incomplete'
-
-    // 6. PRIORITY 4: ONLY VERIFIED GOOD / SAFE CONDITION (Green - Celebrating Happy Minecraft Hero "WAVE")
-    // Strictly requires: score < 20 (0-19 Low Risk), clean category, no threat signals, no incomplete telemetry, verified safe.
-    const isStrictlyGood =
-      (riskScore === null || riskScore < 20) &&
-      (classification === 'safe' || classification === '') &&
-      (rawCat.includes('clean') || rawCat.includes('low') || rawCat.includes('safe') || rawCat === '') &&
-      invStatus !== 'INVESTIGATION INCOMPLETE' &&
-      invStatus !== 'UNVERIFIED' &&
-      invStatus !== 'SUSPICIOUS' &&
-      invStatus !== 'MALICIOUS' &&
-      !invStatus.includes('INCOMPLETE') &&
-      !invStatus.includes('CAUTION') &&
-      !invStatus.includes('THREAT') &&
-      !isIncomplete &&
-      !isSuspicious &&
-      !isDangerous
-
-    if (isStrictlyGood) {
-      return 'safe'
-    }
-
-    // Default to vigilant sentinel if not strictly good (prevents showing WAVE on any ambiguous or moderate condition)
-    return 'suspicious'
+  // Centralized authoritative verdict resolver
+  const verdict = useMemo(() => {
+    return resolveScanVerdict(effectiveData, effectiveState)
   }, [effectiveState, effectiveData])
 
   // Early return ONLY after all hooks are evaluated to maintain constant hook count
   if (state === 'idle' && !previewOverride) return null
 
-  const theme = THEMES[themeKey] || THEMES.suspicious
+  const theme = verdict
 
   return (
     <div
@@ -547,6 +499,7 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
               data={effectiveData}
               url={url}
               theme={theme}
+              verdict={verdict}
               previewOverride={previewOverride}
               onSelectPreview={setPreviewOverride}
               showRawJson={showRawJson}
@@ -726,6 +679,7 @@ function CleanDossierContent({
   data,
   url,
   theme,
+  verdict,
   previewOverride,
   onSelectPreview,
   showRawJson,
@@ -772,62 +726,15 @@ function CleanDossierContent({
 
   const invStatus = String(finalRisk.investigation_status || (incidentReport?.isIncomplete ? 'INVESTIGATION INCOMPLETE' : 'VERIFIED SAFE')).toUpperCase()
 
-  // Risk Category & Summary
+  // Risk Category & Summary derived directly from authoritative centralized verdict
   const { category, categoryLabel, categoryColor, categoryBg, scoreSummary } = useMemo(() => {
-    const rawCat = String(finalRisk.risk_category || '').toLowerCase()
-
-    if (invStatus === 'MALICIOUS' || isConfirmedThreat || rawCat.includes('critical') || (riskScore !== null && riskScore >= 80)) {
+    if (verdict) {
       return {
-        category: 'CRITICAL',
-        categoryLabel: 'CRITICAL RISK',
-        categoryColor: '#cc2222',
-        categoryBg: '#fff0f0',
-        scoreSummary: finalRisk.explanation || 'Severe security risk detected. Access should be blocked to prevent potential compromise.',
-      }
-    }
-    if (rawCat.includes('high') || (riskScore !== null && riskScore >= 60)) {
-      return {
-        category: 'HIGH',
-        categoryLabel: 'HIGH RISK',
-        categoryColor: '#e67e22',
-        categoryBg: '#fff6ed',
-        scoreSummary: finalRisk.explanation || 'High probability of malicious intent. Do not enter passwords or confidential details.',
-      }
-    }
-    if (invStatus === 'SUSPICIOUS' || rawCat.includes('suspicious') || (riskScore !== null && riskScore >= 40)) {
-      return {
-        category: 'SUSPICIOUS',
-        categoryLabel: 'SUSPICIOUS',
-        categoryColor: '#d97706',
-        categoryBg: '#fffbeb',
-        scoreSummary: finalRisk.explanation || 'Suspicious risk signals detected. Exercise heightened caution.',
-      }
-    }
-    if (rawCat.includes('mod') || rawCat.includes('med') || (riskScore !== null && riskScore >= 20)) {
-      return {
-        category: 'MEDIUM',
-        categoryLabel: 'MODERATE RISK',
-        categoryColor: '#c8952a',
-        categoryBg: '#fffbf0',
-        scoreSummary: finalRisk.explanation || 'Moderate security warnings identified. Exercise caution before interacting with this page.',
-      }
-    }
-    if (invStatus === 'INVESTIGATION INCOMPLETE' || isIncomplete) {
-      return {
-        category: 'INCOMPLETE',
-        categoryLabel: 'INVESTIGATION INCOMPLETE',
-        categoryColor: '#c97e00',
-        categoryBg: '#fffdf0',
-        scoreSummary: finalRisk.explanation || 'Critical investigation modules were unavailable or timed out. Target safety could not be verified.',
-      }
-    }
-    if (invStatus === 'UNVERIFIED') {
-      return {
-        category: 'UNVERIFIED',
-        categoryLabel: 'UNVERIFIED',
-        categoryColor: '#8a6d3b',
-        categoryBg: '#faf8f2',
-        scoreSummary: finalRisk.explanation || 'Insufficient network telemetry available to analyze this destination.',
+        category: verdict.category,
+        categoryLabel: verdict.categoryLabel,
+        categoryColor: verdict.categoryColor,
+        categoryBg: verdict.categoryBg,
+        scoreSummary: verdict.scoreSummary,
       }
     }
     return {
@@ -835,9 +742,9 @@ function CleanDossierContent({
       categoryLabel: 'VERIFIED SAFE',
       categoryColor: '#3a7a3a',
       categoryBg: '#f0f9f0',
-      scoreSummary: finalRisk.explanation || 'All investigation checks completed with zero malicious indicators detected.',
+      scoreSummary: 'All investigation checks completed with zero malicious indicators detected.',
     }
-  }, [invStatus, finalRisk.risk_category, finalRisk.explanation, isConfirmedThreat, riskScore, isIncomplete])
+  }, [verdict])
 
   // Concise 2–4 reasons behind the score
   const reasons = useMemo(() => {
@@ -987,12 +894,15 @@ function CleanDossierContent({
     }
 
     if (ssl && ssl.is_valid === true) {
+      const isElevatedRisk = category !== 'LOW' || (riskScore !== null && riskScore >= 20)
       const issuer = ssl.issuer ? `issued by ${ssl.issuer}` : 'from a trusted authority'
       list.push({
-        type: 'success',
-        icon: '✔',
-        title: 'Valid HTTPS Security',
-        text: `Traffic is encrypted with an active SSL certificate ${issuer}.`,
+        type: isElevatedRisk ? 'info' : 'success',
+        icon: isElevatedRisk ? 'ℹ' : '✔',
+        title: isElevatedRisk ? 'Encrypted Transport (HTTPS)' : 'Valid HTTPS Security',
+        text: isElevatedRisk
+          ? `Traffic is encrypted with an active SSL certificate ${issuer}. Note: Transport encryption alone does not guarantee domain trustworthiness or prevent phishing.`
+          : `Traffic is encrypted with an active SSL certificate ${issuer}.`,
       })
     }
 
@@ -1037,7 +947,7 @@ function CleanDossierContent({
         type: 'info',
         icon: 'ℹ',
         title: 'Webpage Content Inspection Unavailable',
-        text: `Automated DOM content inspection could not be performed (${errReason}).`,
+        text: `Automated DOM content inspection could not be performed (${errReason}). Safety cannot be inferred from absent telemetry.`,
       })
     }
 
@@ -1103,7 +1013,7 @@ function CleanDossierContent({
               lineHeight: 1,
             }}
           >
-            {theme.label}
+            {verdict?.heading || theme.label}
           </span>
           <span
             style={{
@@ -1118,7 +1028,7 @@ function CleanDossierContent({
               textTransform: 'uppercase',
             }}
           >
-            {theme.badgeLabel}
+            {verdict?.badge || theme.badgeLabel}
           </span>
         </div>
 
