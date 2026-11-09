@@ -1,0 +1,5 @@
+.venv/
+backend/.venv/
+.vercel_python_packages/
+*.log
+.git/
