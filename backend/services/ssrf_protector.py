@@ -57,11 +57,46 @@ BLOCKED_HOSTNAMES = {
 }
 
 def parse_ip(ip_str: str) -> Optional[ipaddress.IPv4Address | ipaddress.IPv6Address]:
-    """Attempts to parse string as IPv4 or IPv6 address object; returns None if not an IP."""
+    """
+    Attempts to parse string as IPv4 or IPv6 address object; handles standard notation,
+    decimal integers (e.g. 2130706433), hex (e.g. 0x7f000001), and octal IPv4 literals.
+    Returns None if not an IP.
+    """
     try:
         return ipaddress.ip_address(ip_str.strip())
     except (ValueError, AttributeError):
-        return None
+        pass
+
+    s = ip_str.strip()
+
+    # Decimal integer representation (e.g. 2130706433 -> 127.0.0.1)
+    if s.isdigit():
+        try:
+            val = int(s)
+            if 0 <= val <= 0xFFFFFFFF:
+                return ipaddress.IPv4Address(val)
+        except Exception:
+            pass
+
+    # Hex integer representation (e.g. 0x7f000001 -> 127.0.0.1)
+    if s.startswith("0x") or s.startswith("0X"):
+        try:
+            val = int(s, 16)
+            if 0 <= val <= 0xFFFFFFFF:
+                return ipaddress.IPv4Address(val)
+        except Exception:
+            pass
+
+    # Octal dot-decimal representation (e.g. 0177.0.0.1 -> 127.0.0.1)
+    if "." in s and any(p.startswith("0") and len(p) > 1 and p.isdigit() for p in s.split(".")):
+        try:
+            octal_parts = [int(p, 8) if p.startswith("0") and p.isdigit() else int(p) for p in s.split(".")]
+            if len(octal_parts) == 4 and all(0 <= p <= 255 for p in octal_parts):
+                return ipaddress.IPv4Address(".".join(str(p) for p in octal_parts))
+        except Exception:
+            pass
+
+    return None
 
 def is_ip_blocked(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> Tuple[bool, str]:
     """

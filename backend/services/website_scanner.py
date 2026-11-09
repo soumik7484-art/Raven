@@ -95,6 +95,12 @@ def is_eicar_test_case(url: str, hostname: str) -> bool:
         return True
     return False
 
+def is_gsb_test_case(url: str, hostname: str) -> bool:
+    """Detects official Google Safe Browsing test environment resources."""
+    u_lower = url.lower()
+    h_lower = hostname.lower()
+    return "testsafebrowsing.appspot.com" in h_lower or "testsafebrowsing.appspot.com" in u_lower
+
 def is_legitimate_brand_domain(hostname: str, brand: str) -> bool:
     """
     Checks if a hostname belongs legitimately to the given brand.
@@ -669,10 +675,30 @@ def synthesize_scan_report(
 
     # Special handling for official EICAR test file resources
     is_eicar = is_eicar_test_case(url, hostname)
+    is_gsb_test = is_gsb_test_case(url, hostname)
+
+    # URL Shortener destination inspection
+    is_shortener = normalized.get("is_shortener", False)
+    final_dest_url = dom_result.get("final_url", url)
+    final_dest_host = ""
+    if final_dest_url and final_dest_url != url:
+        try:
+            final_dest_host = (urllib.parse.urlparse(final_dest_url).hostname or "").lower()
+        except Exception:
+            pass
 
     # Evaluate lexical heuristics
     heuristics = evaluate_lexical_heuristics(url, hostname)
     detected_brand = heuristics.get("detected_brand")
+
+    # If shortener resolved to a different destination, evaluate destination heuristics
+    if is_shortener and final_dest_host and final_dest_host != hostname:
+        dest_heuristics = evaluate_lexical_heuristics(final_dest_url, final_dest_host)
+        if dest_heuristics.get("detected_brand") and not detected_brand:
+            detected_brand = dest_heuristics["detected_brand"]
+            heuristics["detected_brand"] = detected_brand
+            heuristics["flags"].extend(dest_heuristics.get("flags", []))
+            heuristics["risk_score"] = max(heuristics["risk_score"], dest_heuristics.get("risk_score", 0))
 
     # Evaluate DOM findings
     dom_inconclusive = dom_result.get("content_inspection_state") == "INCONCLUSIVE"
@@ -819,6 +845,18 @@ def synthesize_scan_report(
         )
         recommended_action = "Safe for authorized security verification testing. Not a hostile malicious website."
 
+    elif is_gsb_test and (ti_malicious or gsb_is_bad):
+        classification = "malicious"
+        score = 100 if (gsb_is_bad or vt_malicious_count >= 5 or has_external_credential_theft) else 85
+        detection_status = "Confirmed Threat"
+        threat_type = f"Google Safe Browsing Test Target ({', '.join(feed_threat_types) or 'Malware/Phishing Pattern'})"
+        confidence = "High Confidence (99%)"
+        explanation = (
+            f"CONTROLLED SECURITY TEST RESOURCE: Target '{hostname}' is the official Google Safe Browsing test environment "
+            f"designed to verify browser and API client threat protection. Upstream feeds confirmed expected test signature: {', '.join(feed_threat_types)}."
+        )
+        recommended_action = "Controlled test endpoint. Safe for security testing and engine verification; not an active exploit against user endpoints."
+
     elif ti_malicious or dom_confirmed or has_external_credential_theft:
         classification = "malicious"
         score = 100 if (gsb_is_bad or vt_malicious_count >= 5 or dom_confirmed or has_external_credential_theft) else 85
@@ -885,6 +923,19 @@ def synthesize_scan_report(
         explanation = f"INSECURE TRANSPORT: '{hostname}' does not use TLS encryption (HTTP). Traffic can be intercepted on local networks."
         recommended_action = "Do not enter passwords or payment information over plaintext HTTP."
 
+    elif is_shortener and dom_inconclusive:
+        classification = "safe"
+        score = 25  # Moderate risk hygiene tier due to unresolved shortener destination
+        detection_status = "Destination Inconclusive"
+        threat_type = "Unresolved URL Shortener Destination"
+        confidence = "Moderate Confidence (70%)"
+        explanation = (
+            f"UNRESOLVED SHORTENER: '{hostname}' is a URL shortening service whose final destination could not be resolved "
+            f"or verified ({dom_result.get('fetch_error', 'timeout')}). Because shorteners frequently conceal final targets, "
+            "exercise caution before navigating."
+        )
+        recommended_action = "Verify the target destination before browsing or submitting sensitive data."
+
     elif dom_inconclusive:
         classification = "safe"
         score = 15
@@ -937,6 +988,11 @@ def synthesize_scan_report(
     inv_coverage = 65 if dom_inconclusive else int((completed_stages / total_stages) * 100)
 
     failed_checks = []
+    if is_shortener and dom_inconclusive:
+        failed_checks.append({
+            "check": "URL Shortener Expansion",
+            "description": f"Shortener destination could not be resolved ({dom_result.get('fetch_error', 'timeout')})"
+        })
     if dom_inconclusive:
         failed_checks.append({
             "check": "DOM Content Inspection",

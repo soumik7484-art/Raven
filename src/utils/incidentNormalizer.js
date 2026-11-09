@@ -348,7 +348,7 @@ export function extractIncidents(data) {
   domainRisks.forEach((indicator) => {
     const indLower = indicator.toLowerCase()
 
-    if (indLower.includes('punycode') || indLower.includes('homograph')) {
+    if ((indLower.includes('homograph') || indLower.includes('punycode') || indLower.includes('unicode')) && (indLower.includes('spoofing') || indLower.includes('deceptive') || indLower.includes('attack') || indLower.includes('homograph'))) {
       rawIncidents.push({
         id: 'domain-punycode-homograph',
         title: 'Unicode Homograph / Punycode Deception',
@@ -357,6 +357,13 @@ export function extractIncidents(data) {
         description: indicator,
         sources: ['Domain Heuristics Engine'],
         affected_asset: hostname || submittedUrl,
+      })
+    } else if (indLower.includes('punycode') || indLower.includes('idn') || indLower.includes('internationalized')) {
+      observations.push({
+        id: 'obs-domain-punycode-encoding',
+        title: 'Internationalized Domain Name (IDN / Punycode)',
+        description: indicator,
+        asset: hostname || submittedUrl,
       })
     } else if (indLower.includes('raw ip address') || indLower.includes('ip address as hostname')) {
       rawIncidents.push({

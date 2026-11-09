@@ -257,4 +257,44 @@ console.log('Running Incident Normalizer Regression Tests...')
   console.log('✓ Test 6: Confirmed brand impersonation with corresponding incident count passed')
 }
 
-console.log('\nAll 6 Incident Normalizer Regression Tests Passed Successfully!')
+// Test 7: Benign Punycode / IDN domain (münchen.de)
+{
+  const payload = {
+    submitted_url: 'https://xn--mnchen-3ya.de/',
+    domain: 'xn--mnchen-3ya.de',
+    domain_intelligence: {
+      hostname: 'xn--mnchen-3ya.de',
+      ssl_report: { is_valid: true, tls_outcome: 'VALID_CERTIFICATE' },
+      risk_indicators: [
+        'Internationalized Domain Name (IDN / Punycode) encoding present'
+      ]
+    },
+    threat_intelligence: {
+      is_threat_confirmed: false,
+      threat_types: [],
+      providers_checked: 3,
+      providers_malicious_count: 0,
+      provider_results: {}
+    },
+    website_assessment: {
+      is_accessible: true,
+      content_inspection_state: 'COMPLETED',
+      dom_inspection_available: true,
+      brand_impersonation: { is_impersonation_detected: false }
+    }
+  }
+
+  const result = extractIncidents(payload)
+  // Must NOT treat benign Punycode as a deceptive homograph incident
+  const homographInc = result.incidents.find((i) => i.id === 'domain-punycode-homograph')
+  assert.strictEqual(homographInc, undefined, 'Test 7 Failed: Benign IDN must not be marked as Unicode Homograph Deception')
+  assert.strictEqual(result.summary.high, 0, 'Benign IDN must have 0 high severity incidents')
+  assert.strictEqual(result.summary.critical, 0, 'Benign IDN must have 0 critical severity incidents')
+  
+  // Must be placed in observations
+  const obs = result.observations.find((o) => o.id === 'obs-domain-punycode-encoding')
+  assert(obs, 'Test 7 Failed: Benign IDN should be recorded in observations')
+  console.log('✓ Test 7: Benign IDN Punycode observation classification passed')
+}
+
+console.log('\nAll 7 Incident Normalizer Regression Tests Passed Successfully!')
