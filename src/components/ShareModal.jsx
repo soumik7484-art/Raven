@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   X,
   FileText,
@@ -79,21 +80,35 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
     }
   }, [previewImageUrl])
 
-  // Lock background scrolling while modal is open
+  // Lock background scrolling cleanly while modal is open, with zero layout shift
   useEffect(() => {
-    if (isOpen) {
-      const orig = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = orig
-      }
+    if (!isOpen) return
+
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+    const originalBodyPaddingRight = document.body.style.paddingRight
+
+    // Prevent layout shift from scrollbar disappearing on Windows/Linux laptops
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`
+    }
+
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
+      document.body.style.paddingRight = originalBodyPaddingRight
     }
   }, [isOpen])
 
   // Close on Escape key
   useEffect(() => {
+    if (!isOpen) return
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) onClose()
+      if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -122,31 +137,24 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
         handleDownloadPdf()
       }
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        handleDownloadPdf()
-      }
+      if (err.name !== 'AbortError') handleDownloadPdf()
     }
   }
 
   const handleCreateShareLink = async () => {
     setIsGeneratingLink(true)
     setShareError(null)
-    try {
-      const res = await createShareReport({
-        scanId,
-        targetUrl: url,
-        reportData: reportData,
-      })
 
+    try {
+      const res = await createShareReport(exportPayload, scanId)
       if (res.data?.success) {
-        const fullShareUrl = `${window.location.origin}/report/${res.data.share_id}`
         setShareId(res.data.share_id)
-        setShareUrl(fullShareUrl)
+        setShareUrl(res.data.share_url)
       } else {
-        setShareError(res.error || 'Failed to generate public share link.')
+        setShareError(res.error || 'Failed to generate public link. Please try again.')
       }
     } catch (err) {
-      setShareError(err.message || 'Unable to connect to share service.')
+      setShareError(err.message || 'Network error generating link.')
     } finally {
       setIsGeneratingLink(false)
     }
@@ -154,9 +162,10 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
 
   const handleCopyLink = () => {
     if (!shareUrl) return
-    navigator.clipboard.writeText(shareUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
 
   const handleShareLinkNative = async () => {
@@ -165,7 +174,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
       try {
         await navigator.share({
           title: `RAVEN Security Audit: ${url}`,
-          text: `Check out this verified cybersecurity investigation for ${url}. Risk Score: ${score}/100 (${riskCategory}).`,
+          text: `Check out the verified cybersecurity evaluation for ${url}:`,
           url: shareUrl,
         })
       } catch (err) {
@@ -227,19 +236,31 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
     }
   }
 
-  return (
+  const modalJSX = (
     <div
+      className="raven-share-modal-backdrop"
       style={{
         position: 'fixed',
-        inset: 0,
-        zIndex: 99999,
-        backgroundColor: 'rgba(20, 24, 20, 0.72)',
-        backdropFilter: 'blur(3px)',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 999999,
+        backgroundColor: 'rgba(15, 20, 15, 0.78)',
+        backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px',
-        animation: 'fadeIn 0.15s ease-out',
+        padding: 'clamp(10px, 2.5vh, 24px) clamp(10px, 2vw, 20px)',
+        boxSizing: 'border-box',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        overscrollBehavior: 'contain',
+        WebkitOverflowScrolling: 'touch',
+        animation: 'ravenModalFadeIn 0.15s ease-out',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
@@ -249,9 +270,12 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="share-modal-title"
+        className="raven-share-modal-dialog"
         style={{
+          margin: 'auto',
           width: 'min(92vw, 600px)',
           maxWidth: '100%',
+          maxHeight: 'min(88vh, calc(100vh - 32px))',
           backgroundColor: '#ffffff',
           border: '3px solid #2a2a2a',
           borderRadius: '4px',
@@ -259,10 +283,11 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: '85dvh',
-          height: 'auto',
+          minHeight: 0,
           boxSizing: 'border-box',
+          position: 'relative',
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* ── Modal Header ── */}
         <div
@@ -274,6 +299,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
             alignItems: 'center',
             justifyContent: 'space-between',
             borderBottom: '2px solid #2a2a2a',
+            flexShrink: 0,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -308,6 +334,14 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
               justifyContent: 'center',
               lineHeight: 1,
               flexShrink: 0,
+              borderRadius: '3px',
+              transition: 'background-color 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent'
             }}
           >
             <X size={18} />
@@ -329,6 +363,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
             gap: '8px',
             width: '100%',
             boxSizing: 'border-box',
+            flexShrink: 0,
           }}
         >
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, fontSize: 'clamp(0.68rem, 2.2vw, 0.75rem)' }}>
@@ -356,6 +391,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
             gridTemplateColumns: '1fr 1fr 1fr',
             borderBottom: '2px solid #2a2a2a',
             backgroundColor: '#eaeae4',
+            flexShrink: 0,
           }}
         >
           <button
@@ -372,6 +408,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
               alignItems: 'center',
               gap: '4px',
               transition: 'background-color 0.1s ease',
+              minWidth: 0,
             }}
           >
             <FileText size={16} color={activeTab === 'pdf' ? '#3a7a3a' : '#666'} />
@@ -404,6 +441,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
               alignItems: 'center',
               gap: '4px',
               transition: 'background-color 0.1s ease',
+              minWidth: 0,
             }}
           >
             <LinkIcon size={16} color={activeTab === 'link' ? '#3a7a3a' : '#666'} />
@@ -435,6 +473,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
               alignItems: 'center',
               gap: '4px',
               transition: 'background-color 0.1s ease',
+              minWidth: 0,
             }}
           >
             <ImageIcon size={16} color={activeTab === 'image' ? '#3a7a3a' : '#666'} />
@@ -454,8 +493,20 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
           </button>
         </div>
 
-        {/* ── Tab Content ── */}
-        <div style={{ padding: '20px 20px', overflowY: 'auto', flex: 1 }}>
+        {/* ── Tab Content (Independently Scrollable with minHeight: 0) ── */}
+        <div
+          className="raven-share-modal-body"
+          style={{
+            padding: '20px 20px',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            flex: 1,
+            minHeight: 0, // CRITICAL: allows flex child to shrink and scroll
+            boxSizing: 'border-box',
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           {/* ════ Option A: Download PDF ════ */}
           {activeTab === 'pdf' && (
             <div>
@@ -517,6 +568,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                   onClick={handleDownloadPdf}
                   style={{
                     flex: 1,
+                    minWidth: 'min(100%, 160px)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -674,6 +726,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                         borderRadius: '3px',
                         overflow: 'hidden',
                         boxShadow: '2px 2px 0 #2a2a2a',
+                        maxWidth: '100%',
                       }}
                     >
                       <input
@@ -682,6 +735,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                         value={shareUrl}
                         style={{
                           flex: 1,
+                          minWidth: 0,
                           padding: '10px 12px',
                           border: 'none',
                           outline: 'none',
@@ -707,6 +761,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                           fontFamily: 'var(--font-pixel)',
                           fontSize: '0.64rem',
                           transition: 'all 0.15s ease',
+                          flexShrink: 0,
                         }}
                       >
                         {copied ? <Check size={12} /> : <Copy size={12} />}
@@ -828,7 +883,8 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  minHeight: '160px',
+                  minHeight: '140px',
+                  maxHeight: 'min(280px, 35vh)',
                   boxShadow: '3px 3px 0 #2a2a2a',
                 }}
               >
@@ -841,7 +897,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                   <img
                     src={previewImageUrl}
                     alt="Scan Summary Card"
-                    style={{ width: '100%', height: 'auto', display: 'block' }}
+                    style={{ width: '100%', height: '100%', maxHeight: 'min(280px, 35vh)', objectFit: 'contain', display: 'block' }}
                   />
                 ) : (
                   <div style={{ color: '#888', fontSize: '0.75rem' }}>Click below to generate image</div>
@@ -855,6 +911,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
                   onClick={handleDownloadImage}
                   style={{
                     flex: 1,
+                    minWidth: 'min(100%, 160px)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -924,6 +981,7 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
             justifyContent: 'space-between',
             fontSize: '0.7rem',
             color: '#666',
+            flexShrink: 0,
           }}
         >
           <span style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.58rem' }}>
@@ -938,15 +996,56 @@ export default function ShareModal({ isOpen, onClose, reportData, targetUrl }) {
               border: '1px solid #2a2a2a',
               borderRadius: '2px',
               fontFamily: 'var(--font-pixel)',
-              fontSize: '0.6rem',
+              fontSize: '0.62rem',
               color: '#333',
               cursor: 'pointer',
+              boxShadow: '1.5px 1.5px 0 #2a2a2a',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f4f4ee'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff'
             }}
           >
             CLOSE
           </button>
         </div>
       </div>
+
+      <style>{`
+        @keyframes ravenModalFadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        .raven-share-modal-body::-webkit-scrollbar {
+          width: 6px;
+        }
+        .raven-share-modal-body::-webkit-scrollbar-track {
+          background: #f0f0ea;
+        }
+        .raven-share-modal-body::-webkit-scrollbar-thumb {
+          background: #3a7a3a;
+          border-radius: 2px;
+        }
+        .raven-share-modal-backdrop::-webkit-scrollbar {
+          width: 6px;
+        }
+        .raven-share-modal-backdrop::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .raven-share-modal-backdrop::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.25);
+          border-radius: 3px;
+        }
+      `}</style>
     </div>
   )
+
+  return typeof document !== 'undefined' ? createPortal(modalJSX, document.body) : null
 }
