@@ -506,29 +506,98 @@ export default function ScanResult({ state, data, error, url, onRetry, onReset }
             gap: 8px !important;
           }
         }
-        @media (max-width: 600px) {
+        @media (max-width: 640px) {
           .scan-bubble-inner-pad {
             padding: 14px 12px !important;
           }
           .scan-score-hero-pad {
             padding: 18px 12px 16px !important;
           }
-          .scan-result-footer-actions {
+          .scan-footer-nav-row {
             flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 16px !important;
             width: 100% !important;
-            gap: 10px !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .scan-footer-pipeline-tag {
+            width: 100% !important;
+            text-align: center !important;
+            font-size: 0.68rem !important;
+            overflow-wrap: break-word !important;
+          }
+          .scan-footer-controls-group {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 14px !important;
+            box-sizing: border-box !important;
+            min-width: 0 !important;
+          }
+          .scan-dev-preview-bar {
+            width: 100% !important;
+            justify-content: center !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+          }
+          .scan-result-footer-actions {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            gap: 14px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-width: 0 !important;
           }
           .scan-footer-share-btn,
           .scan-footer-reset-btn {
             width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            min-width: 0 !important;
+            display: flex !important;
+            align-items: center !important;
             justify-content: center !important;
             text-align: center !important;
-            padding: 12px 16px !important;
+            padding: 12px 14px !important;
+            font-family: var(--font-pixel) !important;
+            font-size: clamp(0.64rem, 3.2vw, 0.72rem) !important;
+            line-height: 1.35 !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            border-radius: 3px !important;
+            letter-spacing: 0.04em !important;
+            box-shadow: 2px 2px 0 #2a2a2a !important;
+          }
+          .scan-footer-share-btn {
+            background-color: #ffffff !important;
+            color: #2a2a2a !important;
+            border: 2px solid #2a2a2a !important;
+          }
+          .scan-footer-reset-btn {
+            background-color: #3a7a3a !important;
+            color: #ffffff !important;
+            border: 2px solid #2a2a2a !important;
           }
         }
         @media (max-width: 380px) {
           .metrics-tiles-grid {
             grid-template-columns: repeat(2, 1fr) !important;
+            gap: 6px !important;
+          }
+          .scan-result-footer-actions {
+            gap: 12px !important;
+          }
+          .scan-footer-share-btn,
+          .scan-footer-reset-btn {
+            padding: 10px 10px !important;
+            font-size: clamp(0.58rem, 3vw, 0.65rem) !important;
             gap: 6px !important;
           }
         }
@@ -1893,9 +1962,9 @@ function CleanDossierContent({
             )}
           </div>
         )}
-
         {/* ── Footer Navigation & Expression Switcher ── */}
         <div
+          className="scan-footer-nav-row"
           style={{
             marginTop: '22px',
             paddingTop: '16px',
@@ -1905,21 +1974,45 @@ function CleanDossierContent({
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '12px',
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
           }}
         >
           <span
+            className="scan-footer-pipeline-tag"
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.72rem',
               color: '#777',
+              maxWidth: '100%',
             }}
           >
             Evaluated via TrustLens Multi-Engine Security Pipeline
           </span>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div
+            className="scan-footer-controls-group"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+            }}
+          >
             {/* Dev preview buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div
+              className="scan-dev-preview-bar"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                flexWrap: 'wrap',
+                maxWidth: '100%',
+              }}
+            >
               <span style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.58rem', color: '#888' }}>
                 PREVIEW:
               </span>
@@ -2005,7 +2098,17 @@ function CleanDossierContent({
               </button>
             </div>
 
-            <div className="scan-result-footer-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div
+              className="scan-result-footer-actions"
+              style={{
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setShowShareModal(true)}
@@ -2013,6 +2116,7 @@ function CleanDossierContent({
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '8px',
                   fontFamily: 'var(--font-pixel)',
                   fontSize: '0.7rem',
@@ -2020,11 +2124,14 @@ function CleanDossierContent({
                   backgroundColor: '#ffffff',
                   border: '2px solid #2a2a2a',
                   borderRadius: '3px',
-                  padding: '8px 18px',
+                  padding: '9px 20px',
                   cursor: 'pointer',
                   letterSpacing: '0.04em',
                   boxShadow: '2px 2px 0 #2a2a2a',
                   transition: 'all 0.15s ease',
+                  boxSizing: 'border-box',
+                  maxWidth: '100%',
+                  textAlign: 'center',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#f4f4ee'
@@ -2035,8 +2142,8 @@ function CleanDossierContent({
                   e.currentTarget.style.transform = 'translateY(0)'
                 }}
               >
-                <Share2 size={13} color="#3a7a3a" />
-                SHARE REPORT
+                <Share2 size={13} color="#3a7a3a" style={{ flexShrink: 0 }} />
+                <span>SHARE REPORT</span>
               </button>
 
               <button
@@ -2044,17 +2151,24 @@ function CleanDossierContent({
                 onClick={onReset}
                 className="scan-footer-reset-btn"
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
                   fontFamily: 'var(--font-pixel)',
                   fontSize: '0.7rem',
                   color: '#fff',
                   backgroundColor: '#3a7a3a',
                   border: '2px solid #2a2a2a',
                   borderRadius: '3px',
-                  padding: '8px 18px',
+                  padding: '9px 20px',
                   cursor: 'pointer',
                   letterSpacing: '0.04em',
                   boxShadow: '2px 2px 0 #2a2a2a',
                   transition: 'all 0.15s ease',
+                  boxSizing: 'border-box',
+                  maxWidth: '100%',
+                  textAlign: 'center',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#4a8a4a'
@@ -2065,7 +2179,8 @@ function CleanDossierContent({
                   e.currentTarget.style.transform = 'translateY(0)'
                 }}
               >
-                ← SCAN ANOTHER WEBSITE
+                <span style={{ fontSize: '0.85rem', lineHeight: 1, flexShrink: 0 }}>←</span>
+                <span>SCAN ANOTHER WEBSITE</span>
               </button>
             </div>
           </div>
